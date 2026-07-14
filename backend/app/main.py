@@ -5,6 +5,11 @@ from app.api.routers.health import router as health_router
 from app.core.config import get_settings
 from app.api.routers.users import router as users_router
 from app.api.routers.products import router as products_router
+from app.api.routers.product_variations import (
+    router as product_variations_router,
+)
+
+
 
 settings = get_settings()
 
@@ -23,5 +28,9 @@ app.include_router(
 )
 app.include_router(
     products_router,
+    prefix=settings.api_v1_prefix,
+)
+app.include_router(
+    product_variations_router,
     prefix=settings.api_v1_prefix,
 )

@@ -13,6 +13,12 @@ from app.core.security import decode_access_token
 from app.database.session import get_db_session
 from app.modules.users.model import User
 from app.modules.users.repository import UserRepository
+from app.modules.products.variation_repository import (
+    ProductVariationRepository,
+)
+
+
+
 
 settings = get_settings()
 
@@ -75,3 +81,8 @@ def get_product_repository(
     session: SessionDependency,
 ) -> ProductRepository:
     return ProductRepository(session)
+
+def get_product_variation_repository(
+    session: SessionDependency,
+) -> ProductVariationRepository:
+    return ProductVariationRepository(session)

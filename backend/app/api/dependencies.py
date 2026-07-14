@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
-
+from app.modules.products.repository import ProductRepository
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -70,3 +70,8 @@ def require_roles(*allowed_roles: UserRole) -> Callable:
         return current_user
 
     return dependency
+
+def get_product_repository(
+    session: SessionDependency,
+) -> ProductRepository:
+    return ProductRepository(session)

@@ -15,6 +15,9 @@ from app.modules.users.model import User
 from app.modules.inventory.lot_repository import LotRepository
 from app.modules.users.repository import UserRepository
 from app.modules.inventory.lot_repository import LotRepository
+from app.modules.inventory.movement_repository import (
+    InventoryMovementRepository,
+)
 from app.modules.products.variation_repository import (
     ProductVariationRepository,
 )
@@ -93,3 +96,8 @@ def get_lot_repository(
     session: SessionDependency,
 ) -> LotRepository:
     return LotRepository(session)
+
+def get_inventory_movement_repository(
+    session: SessionDependency,
+) -> InventoryMovementRepository:
+    return InventoryMovementRepository(session)

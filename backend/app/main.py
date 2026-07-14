@@ -9,6 +9,9 @@ from app.api.routers.lots import router as lots_router
 from app.api.routers.product_variations import (
     router as product_variations_router,
 )
+from app.api.routers.inventory_movements import (
+    router as inventory_movements_router,
+)
 
 
 
@@ -37,5 +40,9 @@ app.include_router(
 )
 app.include_router(
     lots_router,
+    prefix=settings.api_v1_prefix,
+)
+app.include_router(
+    inventory_movements_router,
     prefix=settings.api_v1_prefix,
 )

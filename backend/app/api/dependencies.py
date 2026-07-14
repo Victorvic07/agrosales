@@ -12,7 +12,9 @@ from app.core.enums import UserRole
 from app.core.security import decode_access_token
 from app.database.session import get_db_session
 from app.modules.users.model import User
+from app.modules.inventory.lot_repository import LotRepository
 from app.modules.users.repository import UserRepository
+from app.modules.inventory.lot_repository import LotRepository
 from app.modules.products.variation_repository import (
     ProductVariationRepository,
 )
@@ -86,3 +88,8 @@ def get_product_variation_repository(
     session: SessionDependency,
 ) -> ProductVariationRepository:
     return ProductVariationRepository(session)
+
+def get_lot_repository(
+    session: SessionDependency,
+) -> LotRepository:
+    return LotRepository(session)

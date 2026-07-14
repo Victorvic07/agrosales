@@ -6,7 +6,7 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.modules.categories.repository import CategoryRepository
 from app.core.config import get_settings
 from app.core.enums import UserRole
 from app.core.security import decode_access_token
@@ -25,6 +25,12 @@ SessionDependency = Annotated[AsyncSession, Depends(get_db_session)]
 
 def get_user_repository(session: SessionDependency) -> UserRepository:
     return UserRepository(session)
+
+
+def get_category_repository(
+    session: SessionDependency,
+) -> CategoryRepository:
+    return CategoryRepository(session)
 
 
 async def get_current_user(

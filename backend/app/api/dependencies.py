@@ -21,6 +21,9 @@ from app.modules.inventory.movement_repository import (
 from app.modules.products.variation_repository import (
     ProductVariationRepository,
 )
+from app.modules.inventory.reservation_repository import (
+    ReservationRepository,
+)
 
 
 
@@ -101,3 +104,8 @@ def get_inventory_movement_repository(
     session: SessionDependency,
 ) -> InventoryMovementRepository:
     return InventoryMovementRepository(session)
+
+def get_reservation_repository(
+    session: SessionDependency,
+) -> ReservationRepository:
+    return ReservationRepository(session)

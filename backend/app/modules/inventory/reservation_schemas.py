@@ -1,43 +1,41 @@
+from datetime import date
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID
 
-import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field
 
-from app.modules.inventory.reservation_model import (
-    ReservationStatus,
-    StockReservation,
-)
-from app.modules.inventory.reservation_schemas import (
-    StockReservationCreate,
-)
+from app.modules.inventory.reservation_model import ReservationStatus
 
 
-def test_stock_reservation_table_name() -> None:
-    assert StockReservation.__tablename__ == "stock_reservations"
+class StockReservationCreate(BaseModel):
+    lot_id: UUID
+    quantity: Decimal = Field(gt=0)
 
 
-def test_reservation_status_values_are_correct() -> None:
-    assert {status.value for status in ReservationStatus} == {
-        "ACTIVE",
-        "RELEASED",
-        "CONSUMED",
-        "CANCELLED",
-    }
+class StockReservationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    lot_id: UUID
+    quantity: Decimal
+    status: ReservationStatus
 
 
-def test_stock_reservation_accepts_positive_quantity() -> None:
-    reservation = StockReservationCreate(
-        lot_id=uuid4(),
-        quantity=Decimal("25"),
-    )
-
-    assert reservation.quantity == Decimal("25")
+class StockReservationRequest(BaseModel):
+    product_variation_id: UUID
+    quantity: Decimal = Field(gt=0)
 
 
-def test_stock_reservation_rejects_zero_quantity() -> None:
-    with pytest.raises(ValidationError):
-        StockReservationCreate(
-            lot_id=uuid4(),
-            quantity=Decimal("0"),
-        )
+class StockReservationAllocationRead(BaseModel):
+    reservation_id: UUID
+    lot_id: UUID
+    lot_code: str
+    quantity: Decimal
+    expiration_date: date
+
+
+class StockReservationSummaryRead(BaseModel):
+    product_variation_id: UUID
+    requested_quantity: Decimal
+    reserved_quantity: Decimal
+    allocations: list[StockReservationAllocationRead]

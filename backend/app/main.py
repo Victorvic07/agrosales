@@ -12,6 +12,9 @@ from app.api.routers.product_variations import (
 from app.api.routers.inventory_movements import (
     router as inventory_movements_router,
 )
+from app.api.routers.stock_reservations import (
+    router as stock_reservations_router,
+)
 
 
 
@@ -44,5 +47,9 @@ app.include_router(
 )
 app.include_router(
     inventory_movements_router,
+    prefix=settings.api_v1_prefix,
+)
+app.include_router(
+    stock_reservations_router,
     prefix=settings.api_v1_prefix,
 )

@@ -24,6 +24,9 @@ from app.modules.products.variation_repository import (
 from app.modules.inventory.reservation_repository import (
     ReservationRepository,
 )
+from app.modules.customers.customer_repository import (
+    CustomerRepository,
+)
 
 
 
@@ -109,3 +112,7 @@ def get_reservation_repository(
     session: SessionDependency,
 ) -> ReservationRepository:
     return ReservationRepository(session)
+def get_customer_repository(
+    session: SessionDependency,
+) -> CustomerRepository:
+    return CustomerRepository(session)

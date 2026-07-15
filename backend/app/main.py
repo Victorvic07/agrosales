@@ -15,7 +15,7 @@ from app.api.routers.inventory_movements import (
 from app.api.routers.stock_reservations import (
     router as stock_reservations_router,
 )
-
+from app.api.routers.customers import router as customers_router
 
 
 settings = get_settings()
@@ -51,5 +51,9 @@ app.include_router(
 )
 app.include_router(
     stock_reservations_router,
+    prefix=settings.api_v1_prefix,
+)
+app.include_router(
+    customers_router,
     prefix=settings.api_v1_prefix,
 )

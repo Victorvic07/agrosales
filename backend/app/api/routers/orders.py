@@ -52,6 +52,12 @@ from app.modules.orders.order_cancellation_service import (
     OrderCannotBeCancelledError,
     OrderNotFoundError as CancellationOrderNotFoundError,
 )
+from app.modules.orders.order_completion_service import (
+    InvalidStockBalanceError,
+    OrderCannotBeCompletedError,
+    OrderCompletionService,
+    OrderNotFoundError as CompletionOrderNotFoundError,
+)
 
 router = APIRouter(prefix="/orders", tags=["Pedidos"])
 
@@ -394,6 +400,7 @@ async def confirm_order(
             detail=str(error),
         ) from error
 
+
 @router.post(
     "/{order_id}/cancel",
     response_model=OrderRead,
@@ -445,6 +452,62 @@ async def cancel_order(
         ) from error
 
     except InvalidReservedStockError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(error),
+        ) from error
+
+@router.post(
+    "/{order_id}/complete",
+    response_model=OrderRead,
+    status_code=status.HTTP_200_OK,
+)
+async def complete_order(
+    order_id: UUID,
+    session: Annotated[
+        AsyncSession,
+        Depends(get_db_session),
+    ],
+    order_repository: Annotated[
+        OrderRepository,
+        Depends(get_order_repository),
+    ],
+    reservation_repository: Annotated[
+        ReservationRepository,
+        Depends(get_reservation_repository),
+    ],
+    _: Annotated[
+        User,
+        Depends(
+            require_roles(
+                UserRole.ADMINISTRADOR,
+                UserRole.PRODUTOR,
+            )
+        ),
+    ],
+) -> Order:
+    service = OrderCompletionService(
+        session=session,
+        order_repository=order_repository,
+        reservation_repository=reservation_repository,
+    )
+
+    try:
+        return await service.complete(order_id)
+
+    except CompletionOrderNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+
+    except OrderCannotBeCompletedError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(error),
+        ) from error
+
+    except InvalidStockBalanceError as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(error),

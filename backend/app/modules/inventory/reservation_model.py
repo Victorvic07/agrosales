@@ -33,6 +33,16 @@ class StockReservation(Base):
         index=True,
     )
 
+    order_item_id: Mapped[UUID | None] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey(
+            "order_items.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
     quantity: Mapped[Decimal] = mapped_column(
         Numeric(12, 3),
         nullable=False,
@@ -61,13 +71,3 @@ class StockReservation(Base):
     )
 
     lot = relationship("Lot")
-
-    order_item_id: Mapped[UUID | None] = mapped_column(
-    PostgreSQLUUID(as_uuid=True),
-    ForeignKey(
-        "order_items.id",
-        ondelete="SET NULL",
-    ),
-    nullable=True,
-    index=True,
-)

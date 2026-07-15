@@ -86,3 +86,27 @@ def test_stock_reservation_summary_contains_allocations() -> None:
 
     assert response.allocations[0].reservation_id == reservation_id
     assert response.reserved_quantity == Decimal("50")
+
+
+def test_stock_reservation_accepts_optional_order_item_id() -> None:
+    reservation = StockReservation(
+        id=uuid4(),
+        lot_id=uuid4(),
+        order_item_id=uuid4(),
+        quantity=Decimal("10"),
+        status=ReservationStatus.ACTIVE,
+    )
+
+    assert reservation.order_item_id is not None
+
+
+def test_stock_reservation_allows_manual_reservation_without_order() -> None:
+    reservation = StockReservation(
+        id=uuid4(),
+        lot_id=uuid4(),
+        order_item_id=None,
+        quantity=Decimal("10"),
+        status=ReservationStatus.ACTIVE,
+    )
+
+    assert reservation.order_item_id is None

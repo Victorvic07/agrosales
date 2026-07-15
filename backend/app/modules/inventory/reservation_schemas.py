@@ -17,6 +17,7 @@ class StockReservationRead(BaseModel):
 
     id: UUID
     lot_id: UUID
+    order_item_id: UUID | None
     quantity: Decimal
     status: ReservationStatus
 

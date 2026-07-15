@@ -3,13 +3,21 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.modules.inventory.lot_model import Lot
-from app.modules.inventory.reservation_model import StockReservation
+from app.modules.inventory.reservation_model import (
+    ReservationStatus,
+    StockReservation,
+)
+from app.modules.orders.order_item_model import OrderItem
 
 
 class ReservationRepository:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+    ) -> None:
         self.session = session
 
     async def get_eligible_lots(
@@ -29,6 +37,30 @@ class ReservationRepository:
                 Lot.expiration_date.asc(),
                 Lot.production_date.asc(),
                 Lot.code.asc(),
+            )
+            .with_for_update()
+        )
+
+        result = await self.session.scalars(statement)
+
+        return list(result.all())
+
+    async def list_active_by_order(
+        self,
+        order_id: UUID,
+    ) -> list[StockReservation]:
+        statement = (
+            select(StockReservation)
+            .join(
+                OrderItem,
+                StockReservation.order_item_id == OrderItem.id,
+            )
+            .options(
+                selectinload(StockReservation.lot)
+            )
+            .where(
+                OrderItem.order_id == order_id,
+                StockReservation.status == ReservationStatus.ACTIVE,
             )
             .with_for_update()
         )

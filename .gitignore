@@ -16,3 +16,5 @@ node_modules/
 local.properties
 *.iml
 .DS_Store
+
+.worktrees/

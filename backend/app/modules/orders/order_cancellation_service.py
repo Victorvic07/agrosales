@@ -11,6 +11,12 @@ from app.modules.inventory.reservation_repository import (
 )
 from app.modules.orders.order_model import Order, OrderStatus
 from app.modules.orders.order_repository import OrderRepository
+from app.modules.orders.order_status_history_model import (
+    OrderStatusHistory,
+)
+from app.modules.orders.order_status_history_repository import (
+    OrderStatusHistoryRepository,
+)
 
 
 class OrderNotFoundError(Exception):
@@ -31,14 +37,17 @@ class OrderCancellationService:
         session: AsyncSession,
         order_repository: OrderRepository,
         reservation_repository: ReservationRepository,
+        history_repository: OrderStatusHistoryRepository | None = None,
     ) -> None:
         self.session = session
         self.order_repository = order_repository
         self.reservation_repository = reservation_repository
+        self.history_repository = history_repository
 
     async def cancel(
         self,
         order_id: UUID,
+        changed_by_user_id: UUID | None = None,
     ) -> Order:
         try:
             order = await self.order_repository.get_by_id_for_update(
@@ -59,6 +68,8 @@ class OrderCancellationService:
                 raise OrderCannotBeCancelledError(
                     "Pedido já está cancelado"
                 )
+
+            previous_status = order.status
 
             if order.status == OrderStatus.CONFIRMED:
                 reservations = (
@@ -88,6 +99,19 @@ class OrderCancellationService:
 
             order.status = OrderStatus.CANCELLED
             order.cancelled_at = datetime.now(timezone.utc)
+
+            if (
+                self.history_repository is not None
+                and changed_by_user_id is not None
+            ):
+                history = OrderStatusHistory(
+                    order=order,
+                    previous_status=previous_status,
+                    new_status=OrderStatus.CANCELLED,
+                    changed_by_user_id=changed_by_user_id,
+                )
+
+                self.history_repository.add(history)
 
             await self.session.commit()
             await self.session.refresh(order)

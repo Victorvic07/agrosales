@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import (
     get_customer_repository,
     get_order_repository,
+    get_order_status_history_repository,
     get_product_variation_repository,
     get_reservation_repository,
     require_roles,
@@ -26,6 +27,12 @@ from app.modules.orders.order_confirmation_service import (
 from app.modules.orders.order_item_model import OrderItem
 from app.modules.orders.order_model import Order
 from app.modules.orders.order_repository import OrderRepository
+from app.modules.orders.order_status_history_repository import (
+    OrderStatusHistoryRepository,
+)
+from app.modules.orders.order_status_history_schemas import (
+    OrderStatusHistoryRead,
+)
 from app.modules.orders.order_schemas import (
     OrderCreate,
     OrderItemCreate,
@@ -66,11 +73,13 @@ def build_service(
     order_repository: OrderRepository,
     customer_repository: CustomerRepository,
     variation_repository: ProductVariationRepository,
+    history_repository: OrderStatusHistoryRepository | None = None,
 ) -> OrderService:
     return OrderService(
         order_repository=order_repository,
         customer_repository=customer_repository,
         variation_repository=variation_repository,
+        history_repository=history_repository,
     )
 
 
@@ -151,6 +160,42 @@ async def get_order(
     return order
 
 
+@router.get(
+    "/{order_id}/history",
+    response_model=list[OrderStatusHistoryRead],
+)
+async def get_order_history(
+    order_id: UUID,
+    order_repository: Annotated[
+        OrderRepository,
+        Depends(get_order_repository),
+    ],
+    history_repository: Annotated[
+        OrderStatusHistoryRepository,
+        Depends(get_order_status_history_repository),
+    ],
+    _: Annotated[
+        User,
+        Depends(
+            require_roles(
+                UserRole.ADMINISTRADOR,
+                UserRole.PRODUTOR,
+                UserRole.VENDEDOR,
+            )
+        ),
+    ],
+) -> list[OrderStatusHistoryRead]:
+    order = await order_repository.get_by_id(order_id)
+
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pedido não encontrado",
+        )
+
+    return await history_repository.list_by_order(order_id)
+
+
 @router.post("", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
 async def create_order(
     data: OrderCreate,
@@ -162,6 +207,10 @@ async def create_order(
     variation_repository: Annotated[
         ProductVariationRepository,
         Depends(get_product_variation_repository),
+    ],
+    history_repository: Annotated[
+        OrderStatusHistoryRepository,
+        Depends(get_order_status_history_repository),
     ],
     current_user: Annotated[
         User,
@@ -178,9 +227,13 @@ async def create_order(
         order_repository,
         customer_repository,
         variation_repository,
+        history_repository,
     )
     try:
-        return await service.create_order(data=data, seller_id=current_user.id)
+        return await service.create_order(
+            data=data,
+            seller_id=current_user.id,
+        )
     except Exception as error:
         raise_order_error(error)
         raise
@@ -361,7 +414,11 @@ async def confirm_order(
         ReservationRepository,
         Depends(get_reservation_repository),
     ],
-    _: Annotated[
+    history_repository: Annotated[
+        OrderStatusHistoryRepository,
+        Depends(get_order_status_history_repository),
+    ],
+    current_user: Annotated[
         User,
         Depends(
             require_roles(
@@ -376,10 +433,14 @@ async def confirm_order(
         order_repository=order_repository,
         customer_repository=customer_repository,
         reservation_repository=reservation_repository,
+        history_repository=history_repository,
     )
 
     try:
-        return await service.confirm(order_id)
+        return await service.confirm(
+            order_id,
+            changed_by_user_id=current_user.id,
+        )
     except ConfirmationOrderNotFoundError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -420,7 +481,11 @@ async def cancel_order(
         ReservationRepository,
         Depends(get_reservation_repository),
     ],
-    _: Annotated[
+    history_repository: Annotated[
+        OrderStatusHistoryRepository,
+        Depends(get_order_status_history_repository),
+    ],
+    current_user: Annotated[
         User,
         Depends(
             require_roles(
@@ -434,10 +499,14 @@ async def cancel_order(
         session=session,
         order_repository=order_repository,
         reservation_repository=reservation_repository,
+        history_repository=history_repository,
     )
 
     try:
-        return await service.cancel(order_id)
+        return await service.cancel(
+            order_id,
+            changed_by_user_id=current_user.id,
+        )
 
     except CancellationOrderNotFoundError as error:
         raise HTTPException(
@@ -456,6 +525,7 @@ async def cancel_order(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(error),
         ) from error
+
 
 @router.post(
     "/{order_id}/complete",
@@ -476,7 +546,11 @@ async def complete_order(
         ReservationRepository,
         Depends(get_reservation_repository),
     ],
-    _: Annotated[
+    history_repository: Annotated[
+        OrderStatusHistoryRepository,
+        Depends(get_order_status_history_repository),
+    ],
+    current_user: Annotated[
         User,
         Depends(
             require_roles(
@@ -490,10 +564,14 @@ async def complete_order(
         session=session,
         order_repository=order_repository,
         reservation_repository=reservation_repository,
+        history_repository=history_repository,
     )
 
     try:
-        return await service.complete(order_id)
+        return await service.complete(
+            order_id,
+            changed_by_user_id=current_user.id,
+        )
 
     except CompletionOrderNotFoundError as error:
         raise HTTPException(

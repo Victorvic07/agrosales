@@ -28,6 +28,9 @@ from app.modules.inventory.reservation_repository import (
 from app.modules.customers.customer_repository import (
     CustomerRepository,
 )
+from app.modules.orders.order_status_history_repository import (
+    OrderStatusHistoryRepository,
+)
 
 
 
@@ -121,3 +124,10 @@ def get_order_repository(
     session: SessionDependency,
 ) -> OrderRepository:
     return OrderRepository(session)
+def get_order_status_history_repository(
+    session: Annotated[
+        AsyncSession,
+        Depends(get_db_session),
+    ],
+) -> OrderStatusHistoryRepository:
+    return OrderStatusHistoryRepository(session)

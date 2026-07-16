@@ -18,6 +18,12 @@ from app.modules.inventory.reservation_service import (
 )
 from app.modules.orders.order_model import Order, OrderStatus
 from app.modules.orders.order_repository import OrderRepository
+from app.modules.orders.order_status_history_model import (
+    OrderStatusHistory,
+)
+from app.modules.orders.order_status_history_repository import (
+    OrderStatusHistoryRepository,
+)
 
 
 class OrderNotFoundError(Exception):
@@ -43,16 +49,19 @@ class OrderConfirmationService:
         order_repository: OrderRepository,
         customer_repository: CustomerRepository,
         reservation_repository: ReservationRepository,
+        history_repository: OrderStatusHistoryRepository | None = None,
     ) -> None:
         self.session = session
         self.order_repository = order_repository
         self.customer_repository = customer_repository
         self.reservation_repository = reservation_repository
+        self.history_repository = history_repository
         self.fefo_service = FefoReservationService()
 
     async def confirm(
         self,
         order_id: UUID,
+        changed_by_user_id: UUID | None = None,
         reference_date: date | None = None,
     ) -> Order:
         try:
@@ -114,8 +123,23 @@ class OrderConfirmationService:
                         reservation
                     )
 
+            previous_status = order.status
+
             order.status = OrderStatus.CONFIRMED
             order.confirmed_at = datetime.now(timezone.utc)
+
+            if (
+                self.history_repository is not None
+                and changed_by_user_id is not None
+            ):
+                history = OrderStatusHistory(
+                    order=order,
+                    previous_status=previous_status,
+                    new_status=OrderStatus.CONFIRMED,
+                    changed_by_user_id=changed_by_user_id,
+                )
+
+                self.history_repository.add(history)
 
             await self.session.commit()
             await self.session.refresh(order)

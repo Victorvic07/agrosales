@@ -119,3 +119,9 @@ class OrderRepository:
         instance: object,
     ) -> None:
         await self.session.refresh(instance)
+
+        if isinstance(instance, Order):
+            await self.session.refresh(
+                instance,
+                attribute_names=["items"],
+            )

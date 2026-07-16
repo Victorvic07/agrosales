@@ -20,6 +20,13 @@ from app.modules.products.variation_repository import (
     ProductVariationRepository,
 )
 
+from app.modules.orders.order_status_history_model import (
+    OrderStatusHistory,
+)
+from app.modules.orders.order_status_history_repository import (
+    OrderStatusHistoryRepository,
+)
+
 
 class OrderNotFoundError(Exception):
     pass
@@ -55,10 +62,12 @@ class OrderService:
         order_repository: OrderRepository,
         customer_repository: CustomerRepository,
         variation_repository: ProductVariationRepository,
+        history_repository: OrderStatusHistoryRepository | None = None,
     ) -> None:
         self.order_repository = order_repository
         self.customer_repository = customer_repository
         self.variation_repository = variation_repository
+        self.history_repository = history_repository
 
     async def _get_editable_order(
         self,
@@ -105,6 +114,16 @@ class OrderService:
         )
 
         self.order_repository.add_order(order)
+
+        if self.history_repository is not None:
+            history = OrderStatusHistory(
+                order=order,
+                previous_status=None,
+                new_status=OrderStatus.DRAFT,
+                changed_by_user_id=seller_id,
+            )
+
+            self.history_repository.add(history)
 
         await self.order_repository.commit()
         await self.order_repository.refresh(order)

@@ -111,5 +111,11 @@ class Order(Base):
         "OrderItem",
         back_populates="order",
         cascade="all, delete-orphan",
-        lazy="selectin",
+    )
+
+    status_history = relationship(
+        "OrderStatusHistory",
+        back_populates="order",
+        cascade="all, delete-orphan",
+        order_by="OrderStatusHistory.created_at",
     )

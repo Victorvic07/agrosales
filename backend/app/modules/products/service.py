@@ -1,10 +1,15 @@
+from uuid import UUID
+
 from app.modules.categories.repository import CategoryRepository
 from app.modules.products.code_generator import (
     generate_unique_product_code,
 )
 from app.modules.products.model import Product
 from app.modules.products.repository import ProductRepository
-from app.modules.products.schemas import ProductCreate
+from app.modules.products.schemas import (
+    ProductCreate,
+    ProductStatusUpdate,
+)
 
 
 class CategoryNotFoundError(Exception):
@@ -16,6 +21,14 @@ class ProductAlreadyExistsError(Exception):
 
 
 class ProductCodeAlreadyExistsError(Exception):
+    pass
+
+
+class ProductNotFoundError(Exception):
+    pass
+
+
+class ProductHasDependenciesError(Exception):
     pass
 
 
@@ -41,6 +54,53 @@ class ProductService:
             data,
             code,
         )
+
+    async def get_by_id(
+        self,
+        product_id: UUID,
+    ) -> Product:
+        product = await self.product_repository.get_by_id(
+            product_id
+        )
+
+        if product is None:
+            raise ProductNotFoundError(
+                "Produto não encontrado"
+            )
+
+        return product
+
+    async def update_status(
+        self,
+        product_id: UUID,
+        data: ProductStatusUpdate,
+    ) -> Product:
+        product = await self.get_by_id(product_id)
+
+        return await self.product_repository.update_status(
+            product,
+            data.status,
+        )
+
+    async def delete(
+        self,
+        product_id: UUID,
+    ) -> None:
+        product = await self.get_by_id(product_id)
+
+        has_variations = (
+            await self.product_repository.has_variations(
+                product_id
+            )
+        )
+
+        if has_variations:
+            raise ProductHasDependenciesError(
+                "O produto não pode ser excluído porque "
+                "possui variações vinculadas"
+            )
+
+        await self.product_repository.delete(product)
 
     async def _validate_category(
         self,

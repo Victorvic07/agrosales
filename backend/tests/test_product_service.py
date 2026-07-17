@@ -5,13 +5,15 @@ from uuid import uuid4
 import pytest
 
 from app.modules.categories.model import Category
-from app.modules.products.enums import ProductUnit
+from app.modules.products.enums import ProductStatus, ProductUnit
 from app.modules.products.model import Product
-from app.modules.products.schemas import ProductCreate
+from app.modules.products.schemas import ProductCreate, ProductStatusUpdate
 from app.modules.products.service import (
     CategoryNotFoundError,
     ProductAlreadyExistsError,
     ProductCodeAlreadyExistsError,
+    ProductHasDependenciesError,
+    ProductNotFoundError,
     ProductService,
 )
 
@@ -207,3 +209,132 @@ async def test_rejects_duplicate_custom_code() -> None:
         await service.create(
             make_product_data(code="TOM-001")
         )
+
+@pytest.mark.asyncio
+async def test_gets_product_by_id() -> None:
+    product_id = uuid4()
+    expected_product = Product(
+        id=product_id,
+        code="PRD-000001",
+        name="Tomate italiano",
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+    product_repository.get_by_id.return_value = expected_product
+
+    service = ProductService(
+        product_repository=product_repository,
+        category_repository=category_repository,
+    )
+    result = await service.get_by_id(product_id)
+
+    assert result is expected_product
+    product_repository.get_by_id.assert_awaited_once_with(product_id)
+
+
+@pytest.mark.asyncio
+async def test_rejects_unknown_product_id() -> None:
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+    product_repository.get_by_id.return_value = None
+
+    service = ProductService(
+        product_repository=product_repository,
+        category_repository=category_repository,
+    )
+
+    with pytest.raises(ProductNotFoundError):
+        await service.get_by_id(uuid4())
+
+
+@pytest.mark.asyncio
+async def test_updates_product_status() -> None:
+    product_id = uuid4()
+
+    product = Product(
+        id=product_id,
+        code="PRD-000001",
+        name="Tomate italiano",
+        status=ProductStatus.ATIVO,
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = product
+    product_repository.update_status.return_value = product
+
+    service = ProductService(
+        product_repository=product_repository,
+        category_repository=category_repository,
+    )
+
+    data = ProductStatusUpdate(
+        status=ProductStatus.DESCONTINUADO,
+    )
+
+    result = await service.update_status(product_id, data)
+
+    assert result is product
+
+    product_repository.update_status.assert_awaited_once_with(
+        product,
+        ProductStatus.DESCONTINUADO,
+    )
+
+
+@pytest.mark.asyncio
+async def test_deletes_product_without_variations() -> None:
+    product_id = uuid4()
+
+    product = Product(
+        id=product_id,
+        code="PRD-000001",
+        name="Tomate italiano",
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = product
+    product_repository.has_variations.return_value = False
+
+    service = ProductService(
+        product_repository=product_repository,
+        category_repository=category_repository,
+    )
+
+    await service.delete(product_id)
+
+    product_repository.has_variations.assert_awaited_once_with(
+        product_id
+    )
+    product_repository.delete.assert_awaited_once_with(product)
+
+
+@pytest.mark.asyncio
+async def test_rejects_deletion_when_product_has_variations() -> None:
+    product_id = uuid4()
+
+    product = Product(
+        id=product_id,
+        code="PRD-000001",
+        name="Tomate italiano",
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = product
+    product_repository.has_variations.return_value = True
+
+    service = ProductService(
+        product_repository=product_repository,
+        category_repository=category_repository,
+    )
+
+    with pytest.raises(ProductHasDependenciesError):
+        await service.delete(product_id)
+
+    product_repository.delete.assert_not_awaited()

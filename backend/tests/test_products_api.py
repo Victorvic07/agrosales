@@ -94,6 +94,8 @@ def test_admin_can_create_product(client) -> None:
     assert response.status_code == 201
     assert response.json()["name"] == "Tomate"
     assert response.json()["code"] == "PRD-000001"
+    assert response.json()["status"] == "ATIVO"
+
     product_repository.get_last_generated_code.assert_awaited_once()
     product_repository.exists_by_code.assert_awaited_once_with(
         "PRD-000001"
@@ -102,6 +104,7 @@ def test_admin_can_create_product(client) -> None:
     create_args = product_repository.create.await_args.args
 
     assert create_args[1] == "PRD-000001"
+
 
 def test_vendor_cannot_create_product(client) -> None:
     user = User(
@@ -168,3 +171,239 @@ def test_all_roles_can_list_products(client) -> None:
     assert response.json()[0]["name"] == "Tomate"
     assert response.json()[0]["unit"] == "UNIDADE"
     assert response.json()[0]["status"] == "ATIVO"
+
+
+def test_all_roles_can_get_product_by_id(client) -> None:
+    user = User(
+        id=uuid4(),
+        name="Vendedor",
+        email="vendedor@agrosales.com",
+        password_hash="hash",
+        role=UserRole.VENDEDOR,
+        is_active=True,
+    )
+
+    product_id = uuid4()
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = make_product(
+        category_id=uuid4(),
+    )
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = (
+        lambda: product_repository
+    )
+    app.dependency_overrides[get_category_repository] = (
+        lambda: category_repository
+    )
+
+    response = client.get(
+        f"/api/v1/products/{product_id}"
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["code"] == "PRD-000001"
+
+
+def test_get_product_returns_404_when_not_found(client) -> None:
+    user = User(
+        id=uuid4(),
+        name="Vendedor",
+        email="vendedor@agrosales.com",
+        password_hash="hash",
+        role=UserRole.VENDEDOR,
+        is_active=True,
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+    product_repository.get_by_id.return_value = None
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = (
+        lambda: product_repository
+    )
+    app.dependency_overrides[get_category_repository] = (
+        lambda: category_repository
+    )
+
+    response = client.get(
+        f"/api/v1/products/{uuid4()}"
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+
+
+def test_admin_can_update_product_status(client) -> None:
+    user = User(
+        id=uuid4(),
+        name="Administrador",
+        email="admin@agrosales.com",
+        password_hash="hash",
+        role=UserRole.ADMINISTRADOR,
+        is_active=True,
+    )
+
+    product_id = uuid4()
+
+    product = make_product()
+    product.status = ProductStatus.DESCONTINUADO
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = product
+    product_repository.update_status.return_value = product
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = (
+        lambda: product_repository
+    )
+    app.dependency_overrides[get_category_repository] = (
+        lambda: category_repository
+    )
+
+    response = client.patch(
+        f"/api/v1/products/{product_id}/status",
+        json={
+            "status": "DESCONTINUADO",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "DESCONTINUADO"
+
+
+def test_vendor_cannot_update_product_status(client) -> None:
+    user = User(
+        id=uuid4(),
+        name="Vendedor",
+        email="vendedor@agrosales.com",
+        password_hash="hash",
+        role=UserRole.VENDEDOR,
+        is_active=True,
+    )
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = (
+        lambda: AsyncMock()
+    )
+    app.dependency_overrides[get_category_repository] = (
+        lambda: AsyncMock()
+    )
+
+    response = client.patch(
+        f"/api/v1/products/{uuid4()}/status",
+        json={
+            "status": "INATIVO",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 403
+
+
+def test_admin_can_delete_product(client) -> None:
+    user = User(
+        id=uuid4(),
+        name="Administrador",
+        email="admin@agrosales.com",
+        password_hash="hash",
+        role=UserRole.ADMINISTRADOR,
+        is_active=True,
+    )
+
+    product_id = uuid4()
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = make_product()
+    product_repository.has_variations.return_value = False
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = (
+        lambda: product_repository
+    )
+    app.dependency_overrides[get_category_repository] = (
+        lambda: category_repository
+    )
+
+    response = client.delete(
+        f"/api/v1/products/{product_id}"
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 204
+    product_repository.delete.assert_awaited_once()
+
+
+def test_delete_product_returns_conflict_when_in_use(
+    client,
+) -> None:
+    user = User(
+        id=uuid4(),
+        name="Administrador",
+        email="admin@agrosales.com",
+        password_hash="hash",
+        role=UserRole.ADMINISTRADOR,
+        is_active=True,
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = make_product()
+    product_repository.has_variations.return_value = True
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = (
+        lambda: product_repository
+    )
+    app.dependency_overrides[get_category_repository] = (
+        lambda: category_repository
+    )
+
+    response = client.delete(
+        f"/api/v1/products/{uuid4()}"
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+
+
+def test_vendor_cannot_delete_product(client) -> None:
+    user = User(
+        id=uuid4(),
+        name="Vendedor",
+        email="vendedor@agrosales.com",
+        password_hash="hash",
+        role=UserRole.VENDEDOR,
+        is_active=True,
+    )
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = (
+        lambda: AsyncMock()
+    )
+    app.dependency_overrides[get_category_repository] = (
+        lambda: AsyncMock()
+    )
+
+    response = client.delete(
+        f"/api/v1/products/{uuid4()}"
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 403

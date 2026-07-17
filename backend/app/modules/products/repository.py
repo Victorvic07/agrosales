@@ -1,10 +1,12 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.products.enums import ProductStatus
 from app.modules.products.model import Product
 from app.modules.products.schemas import ProductCreate
+from app.modules.products.variation_model import ProductVariation
 
 
 class ProductRepository:
@@ -98,3 +100,34 @@ class ProductRepository:
         await self.session.refresh(product)
 
         return product
+    
+        async def update_status(
+        self,
+        product: Product,
+        product_status: ProductStatus,
+    ) -> Product:
+            product.status = product_status
+
+        await self.session.commit()
+        await self.session.refresh(product)
+
+        return product
+
+    async def has_variations(
+        self,
+        product_id: UUID,
+    ) -> bool:
+        statement = select(
+            exists().where(
+                ProductVariation.product_id == product_id
+            )
+        )
+
+        return bool(await self.session.scalar(statement))
+
+    async def delete(
+        self,
+        product: Product,
+    ) -> None:
+        await self.session.delete(product)
+        await self.session.commit()

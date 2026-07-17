@@ -15,9 +15,11 @@ from app.modules.products.schemas import (
     ProductCreate,
     ProductRead,
     ProductStatusUpdate,
+    ProductUpdate,
 )
 from app.modules.products.service import (
     CategoryNotFoundError,
+    InvalidProductPriceError,
     ProductAlreadyExistsError,
     ProductCodeAlreadyExistsError,
     ProductHasDependenciesError,
@@ -61,7 +63,7 @@ async def list_products(
             )
         ),
     ],
-) -> list:
+) -> list[ProductRead]:
     return await repository.list_all()
 
 
@@ -150,6 +152,73 @@ async def create_product(
     ) as error:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
+            detail=str(error),
+        ) from error
+
+
+@router.put(
+    "/{product_id}",
+    response_model=ProductRead,
+)
+async def update_product(
+    product_id: UUID,
+    data: ProductUpdate,
+    product_repository: Annotated[
+        ProductRepository,
+        Depends(get_product_repository),
+    ],
+    category_repository: Annotated[
+        CategoryRepository,
+        Depends(get_category_repository),
+    ],
+    _: Annotated[
+        User,
+        Depends(
+            require_roles(
+                UserRole.ADMINISTRADOR,
+                UserRole.PRODUTOR,
+            )
+        ),
+    ],
+) -> ProductRead:
+    service = build_product_service(
+        product_repository,
+        category_repository,
+    )
+
+    try:
+        return await service.update(
+            product_id,
+            data,
+        )
+
+    except ProductNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+
+    except CategoryNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+
+    except (
+        ProductAlreadyExistsError,
+        ProductCodeAlreadyExistsError,
+    ) as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(error),
+        ) from error
+
+    except (
+        InvalidProductPriceError,
+        ValueError,
+    ) as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(error),
         ) from error
 

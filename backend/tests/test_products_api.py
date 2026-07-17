@@ -407,3 +407,273 @@ def test_vendor_cannot_delete_product(client) -> None:
     app.dependency_overrides.clear()
 
     assert response.status_code == 403
+
+
+def test_admin_can_update_product(client) -> None:
+    user = User(
+        id=uuid4(),
+        name="Administrador",
+        email="admin@agrosales.com",
+        password_hash="hash",
+        role=UserRole.ADMINISTRADOR,
+        is_active=True,
+    )
+
+    product_id = uuid4()
+    category_id = uuid4()
+
+    product = make_product(
+        category_id=category_id,
+        name="Tomate italiano",
+        code="TOM-001",
+        short_description="Tomate selecionado",
+    )
+    product.standard_price = Decimal("18.00")
+    product.minimum_price = Decimal("14.00")
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = product
+    product_repository.get_by_name_and_category.return_value = None
+    product_repository.get_by_code.return_value = None
+    product_repository.update.return_value = product
+
+    category_repository.get_by_id.return_value = Category(
+        id=category_id,
+        name="Hortaliças",
+        is_active=True,
+    )
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = (
+        lambda: product_repository
+    )
+    app.dependency_overrides[get_category_repository] = (
+        lambda: category_repository
+    )
+
+    response = client.put(
+        f"/api/v1/products/{product_id}",
+        json={
+            "category_id": str(category_id),
+            "code": "TOM-001",
+            "name": "Tomate italiano",
+            "standard_price": "18.00",
+            "minimum_price": "14.00",
+            "short_description": "Tomate selecionado",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["code"] == "TOM-001"
+    assert response.json()["name"] == "Tomate italiano"
+    assert response.json()["standard_price"] == "18.00"
+
+
+def test_update_product_returns_404_when_not_found(
+    client,
+) -> None:
+    user = User(
+        id=uuid4(),
+        name="Administrador",
+        email="admin@agrosales.com",
+        password_hash="hash",
+        role=UserRole.ADMINISTRADOR,
+        is_active=True,
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+    product_repository.get_by_id.return_value = None
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = (
+        lambda: product_repository
+    )
+    app.dependency_overrides[get_category_repository] = (
+        lambda: category_repository
+    )
+
+    response = client.put(
+        f"/api/v1/products/{uuid4()}",
+        json={
+            "name": "Tomate italiano",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+
+
+def test_update_product_returns_conflict_for_duplicate_code(
+    client,
+) -> None:
+    user = User(
+        id=uuid4(),
+        name="Administrador",
+        email="admin@agrosales.com",
+        password_hash="hash",
+        role=UserRole.ADMINISTRADOR,
+        is_active=True,
+    )
+
+    product_id = uuid4()
+
+    product = make_product()
+    other_product = make_product(
+        code="TOM-001",
+        name="Outro produto",
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = product
+    product_repository.get_by_code.return_value = other_product
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = (
+        lambda: product_repository
+    )
+    app.dependency_overrides[get_category_repository] = (
+        lambda: category_repository
+    )
+
+    response = client.put(
+        f"/api/v1/products/{product_id}",
+        json={
+            "code": "TOM-001",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+
+
+def test_update_product_returns_conflict_for_duplicate_name(
+    client,
+) -> None:
+    user = User(
+        id=uuid4(),
+        name="Administrador",
+        email="admin@agrosales.com",
+        password_hash="hash",
+        role=UserRole.ADMINISTRADOR,
+        is_active=True,
+    )
+
+    product_id = uuid4()
+    category_id = uuid4()
+
+    product = make_product(
+        category_id=category_id,
+    )
+
+    other_product = make_product(
+        category_id=category_id,
+        code="PRD-000002",
+        name="Tomate italiano",
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = product
+    product_repository.get_by_name_and_category.return_value = (
+        other_product
+    )
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = (
+        lambda: product_repository
+    )
+    app.dependency_overrides[get_category_repository] = (
+        lambda: category_repository
+    )
+
+    response = client.put(
+        f"/api/v1/products/{product_id}",
+        json={
+            "name": "Tomate italiano",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+
+
+def test_update_product_returns_422_for_invalid_final_prices(
+    client,
+) -> None:
+    user = User(
+        id=uuid4(),
+        name="Administrador",
+        email="admin@agrosales.com",
+        password_hash="hash",
+        role=UserRole.ADMINISTRADOR,
+        is_active=True,
+    )
+
+    product = make_product()
+    product.standard_price = Decimal("15.00")
+    product.minimum_price = Decimal("12.00")
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = product
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = (
+        lambda: product_repository
+    )
+    app.dependency_overrides[get_category_repository] = (
+        lambda: category_repository
+    )
+
+    response = client.put(
+        f"/api/v1/products/{uuid4()}",
+        json={
+            "minimum_price": "20.00",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+
+
+def test_vendor_cannot_update_product(client) -> None:
+    user = User(
+        id=uuid4(),
+        name="Vendedor",
+        email="vendedor@agrosales.com",
+        password_hash="hash",
+        role=UserRole.VENDEDOR,
+        is_active=True,
+    )
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = (
+        lambda: AsyncMock()
+    )
+    app.dependency_overrides[get_category_repository] = (
+        lambda: AsyncMock()
+    )
+
+    response = client.put(
+        f"/api/v1/products/{uuid4()}",
+        json={
+            "name": "Tomate italiano",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 403

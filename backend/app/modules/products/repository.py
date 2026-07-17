@@ -101,6 +101,19 @@ class ProductRepository:
 
         return product
     
+        async def update(
+        self,
+        product: Product,
+        changes: dict,
+    ) -> Product:
+            for field, value in changes.items():
+                 setattr(product, field, value)
+
+        await self.session.commit()
+        await self.session.refresh(product)
+
+        return product
+    
         async def update_status(
         self,
         product: Product,

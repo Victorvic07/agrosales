@@ -7,9 +7,14 @@ import pytest
 from app.modules.categories.model import Category
 from app.modules.products.enums import ProductStatus, ProductUnit
 from app.modules.products.model import Product
-from app.modules.products.schemas import ProductCreate, ProductStatusUpdate
+from app.modules.products.schemas import (
+    ProductCreate,
+    ProductStatusUpdate,
+    ProductUpdate,
+)
 from app.modules.products.service import (
     CategoryNotFoundError,
+    InvalidProductPriceError,
     ProductAlreadyExistsError,
     ProductCodeAlreadyExistsError,
     ProductHasDependenciesError,
@@ -338,3 +343,288 @@ async def test_rejects_deletion_when_product_has_variations() -> None:
         await service.delete(product_id)
 
     product_repository.delete.assert_not_awaited()
+
+@pytest.mark.asyncio
+async def test_updates_product_fields() -> None:
+    product_id = uuid4()
+    category_id = uuid4()
+
+    product = Product(
+        id=product_id,
+        category_id=None,
+        code="PRD-000001",
+        name="Tomate",
+        unit=ProductUnit.UNIDADE,
+        cost_price=Decimal("8.00"),
+        standard_price=Decimal("15.00"),
+        minimum_price=Decimal("12.00"),
+        status=ProductStatus.ATIVO,
+    )
+
+    category = Category(
+        id=category_id,
+        name="Hortaliças",
+        is_active=True,
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = product
+    product_repository.get_by_name_and_category.return_value = None
+    product_repository.get_by_code.return_value = None
+    product_repository.update.return_value = product
+
+    category_repository.get_by_id.return_value = category
+
+    service = ProductService(
+        product_repository=product_repository,
+        category_repository=category_repository,
+    )
+
+    data = ProductUpdate(
+        category_id=category_id,
+        code="TOM-001",
+        name="Tomate italiano",
+        standard_price=Decimal("18.00"),
+        minimum_price=Decimal("14.00"),
+        short_description="Tomate selecionado",
+    )
+
+    result = await service.update(product_id, data)
+
+    assert result is product
+
+    product_repository.update.assert_awaited_once_with(
+        product,
+        {
+            "category_id": category_id,
+            "code": "TOM-001",
+            "name": "Tomate italiano",
+            "standard_price": Decimal("18.00"),
+            "minimum_price": Decimal("14.00"),
+            "short_description": "Tomate selecionado",
+        },
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_preserves_fields_not_informed() -> None:
+    product_id = uuid4()
+
+    product = Product(
+        id=product_id,
+        category_id=None,
+        code="PRD-000001",
+        name="Tomate",
+        unit=ProductUnit.UNIDADE,
+        cost_price=Decimal("8.00"),
+        standard_price=Decimal("15.00"),
+        minimum_price=Decimal("12.00"),
+        status=ProductStatus.ATIVO,
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = product
+    product_repository.get_by_name_and_category.return_value = None
+    product_repository.update.return_value = product
+
+    service = ProductService(
+        product_repository=product_repository,
+        category_repository=category_repository,
+    )
+
+    data = ProductUpdate(name="Tomate cereja")
+
+    await service.update(product_id, data)
+
+    product_repository.update.assert_awaited_once_with(
+        product,
+        {
+            "name": "Tomate cereja",
+        },
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_rejects_duplicate_code_from_other_product() -> None:
+    product_id = uuid4()
+
+    product = Product(
+        id=product_id,
+        code="PRD-000001",
+        name="Tomate",
+        unit=ProductUnit.UNIDADE,
+        cost_price=Decimal("8.00"),
+        standard_price=Decimal("15.00"),
+        minimum_price=Decimal("12.00"),
+    )
+
+    other_product = Product(
+        id=uuid4(),
+        code="TOM-001",
+        name="Outro produto",
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = product
+    product_repository.get_by_code.return_value = other_product
+
+    service = ProductService(
+        product_repository=product_repository,
+        category_repository=category_repository,
+    )
+
+    with pytest.raises(ProductCodeAlreadyExistsError):
+        await service.update(
+            product_id,
+            ProductUpdate(code="TOM-001"),
+        )
+
+    product_repository.update.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_allows_product_current_code() -> None:
+    product_id = uuid4()
+
+    product = Product(
+        id=product_id,
+        code="PRD-000001",
+        name="Tomate",
+        unit=ProductUnit.UNIDADE,
+        cost_price=Decimal("8.00"),
+        standard_price=Decimal("15.00"),
+        minimum_price=Decimal("12.00"),
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = product
+    product_repository.get_by_code.return_value = product
+    product_repository.update.return_value = product
+
+    service = ProductService(
+        product_repository=product_repository,
+        category_repository=category_repository,
+    )
+
+    await service.update(
+        product_id,
+        ProductUpdate(code="PRD-000001"),
+    )
+
+    product_repository.update.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_update_rejects_duplicate_name_in_category() -> None:
+    product_id = uuid4()
+    category_id = uuid4()
+
+    product = Product(
+        id=product_id,
+        category_id=category_id,
+        code="PRD-000001",
+        name="Tomate",
+        unit=ProductUnit.UNIDADE,
+        cost_price=Decimal("8.00"),
+        standard_price=Decimal("15.00"),
+        minimum_price=Decimal("12.00"),
+    )
+
+    other_product = Product(
+        id=uuid4(),
+        category_id=category_id,
+        code="PRD-000002",
+        name="Tomate italiano",
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = product
+    product_repository.get_by_name_and_category.return_value = (
+        other_product
+    )
+
+    service = ProductService(
+        product_repository=product_repository,
+        category_repository=category_repository,
+    )
+
+    with pytest.raises(ProductAlreadyExistsError):
+        await service.update(
+            product_id,
+            ProductUpdate(name="Tomate italiano"),
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_rejects_invalid_final_prices() -> None:
+    product_id = uuid4()
+
+    product = Product(
+        id=product_id,
+        code="PRD-000001",
+        name="Tomate",
+        unit=ProductUnit.UNIDADE,
+        cost_price=Decimal("8.00"),
+        standard_price=Decimal("15.00"),
+        minimum_price=Decimal("12.00"),
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = product
+
+    service = ProductService(
+        product_repository=product_repository,
+        category_repository=category_repository,
+    )
+
+    with pytest.raises(InvalidProductPriceError):
+        await service.update(
+            product_id,
+            ProductUpdate(minimum_price=Decimal("20.00")),
+        )
+
+    product_repository.update.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_rejects_custom_unit_without_other_unit() -> None:
+    product_id = uuid4()
+
+    product = Product(
+        id=product_id,
+        code="PRD-000001",
+        name="Tomate",
+        unit=ProductUnit.UNIDADE,
+        custom_unit=None,
+        cost_price=Decimal("8.00"),
+        standard_price=Decimal("15.00"),
+        minimum_price=Decimal("12.00"),
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+
+    product_repository.get_by_id.return_value = product
+
+    service = ProductService(
+        product_repository=product_repository,
+        category_repository=category_repository,
+    )
+
+    with pytest.raises(ValueError):
+        await service.update(
+            product_id,
+            ProductUpdate(custom_unit="Saco"),
+        )

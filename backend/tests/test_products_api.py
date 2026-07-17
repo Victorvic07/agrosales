@@ -61,6 +61,8 @@ def test_admin_can_create_product(client) -> None:
 
     product_repository = AsyncMock()
     product_repository.get_by_name_and_category.return_value = None
+    product_repository.get_last_generated_code.return_value = None
+    product_repository.exists_by_code.return_value = False
     product_repository.create.return_value = make_product(
         category_id=category_id,
         short_description="Tomate italiano",
@@ -92,8 +94,14 @@ def test_admin_can_create_product(client) -> None:
     assert response.status_code == 201
     assert response.json()["name"] == "Tomate"
     assert response.json()["code"] == "PRD-000001"
-    assert response.json()["status"] == "ATIVO"
+    product_repository.get_last_generated_code.assert_awaited_once()
+    product_repository.exists_by_code.assert_awaited_once_with(
+        "PRD-000001"
+    )
 
+    create_args = product_repository.create.await_args.args
+
+    assert create_args[1] == "PRD-000001"
 
 def test_vendor_cannot_create_product(client) -> None:
     user = User(

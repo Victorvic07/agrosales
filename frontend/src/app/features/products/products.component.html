@@ -1,0 +1,614 @@
+<section class="products-page">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">
+        Catálogo
+      </p>
+
+      <h1>Produtos</h1>
+
+      <p class="page-description">
+        Consulte os produtos cadastrados no AgroSales.
+      </p>
+    </div>
+
+    @if (canManageProducts()) {
+      <button
+        mat-flat-button
+        type="button"
+        class="primary-action"
+        data-testid="new-product-button"
+        (click)="openCreatePanel()"
+      >
+        <mat-icon>add</mat-icon>
+        Novo produto
+      </button>
+    }
+  </header>
+
+  <div class="filters-card">
+    <mat-form-field
+      appearance="outline"
+      class="search-field"
+    >
+      <mat-label>
+        Buscar produto
+      </mat-label>
+
+      <mat-icon matPrefix>
+        search
+      </mat-icon>
+
+      <input
+        matInput
+        type="search"
+        placeholder="Nome ou código"
+        [ngModel]="searchTerm()"
+        (ngModelChange)="updateSearchTerm($event)"
+      />
+    </mat-form-field>
+
+    <mat-form-field
+      appearance="outline"
+      class="status-field"
+    >
+      <mat-label>Status</mat-label>
+
+      <mat-select
+        [ngModel]="statusFilter()"
+        (ngModelChange)="updateStatusFilter($event)"
+      >
+        <mat-option value="TODOS">
+          Todos
+        </mat-option>
+
+        <mat-option value="ATIVO">
+          Ativos
+        </mat-option>
+
+        <mat-option value="INATIVO">
+          Inativos
+        </mat-option>
+
+        <mat-option value="DESCONTINUADO">
+          Descontinuados
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  @if (loading()) {
+    <div
+      class="state-card"
+      aria-live="polite"
+    >
+      <mat-spinner
+        diameter="40"
+      />
+
+      <p>Carregando produtos...</p>
+    </div>
+  } @else if (errorMessage()) {
+    <div
+      class="state-card error-state"
+      role="alert"
+    >
+      <mat-icon>error_outline</mat-icon>
+
+      <p>{{ errorMessage() }}</p>
+
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="loadProducts()"
+      >
+        Tentar novamente
+      </button>
+    </div>
+  } @else if (
+    filteredProducts().length === 0
+  ) {
+    <div class="state-card">
+      <mat-icon>inventory_2</mat-icon>
+
+      @if (products().length === 0) {
+        <p>
+          Nenhum produto cadastrado.
+        </p>
+      } @else {
+        <p>
+          Nenhum produto encontrado com os filtros informados.
+        </p>
+      }
+    </div>
+  } @else {
+    <div class="table-card">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Produto</th>
+              <th>Código</th>
+              <th>Unidade</th>
+              <th>Preço padrão</th>
+              <th>Status</th>
+
+              @if (canManageProducts()) {
+                <th class="actions-column">
+                  Ações
+                </th>
+              }
+            </tr>
+          </thead>
+
+          <tbody>
+            @for (
+              product of filteredProducts();
+              track product.id
+            ) {
+              <tr>
+                <td>
+                  <div class="product-cell">
+                    <div class="product-image">
+                      @if (imageUrl(product); as url) {
+                        <img
+                          [src]="url"
+                          [alt]="product.name"
+                        />
+                      } @else {
+                        <mat-icon>
+                          inventory_2
+                        </mat-icon>
+                      }
+                    </div>
+
+                    <div>
+                      <strong>
+                        {{ product.name }}
+                      </strong>
+
+                      @if (
+                        product.short_description
+                      ) {
+                        <span>
+                          {{
+                            product.short_description
+                          }}
+                        </span>
+                      }
+                    </div>
+                  </div>
+                </td>
+
+                <td>
+                  {{ product.code }}
+                </td>
+
+                <td>
+                  {{ displayUnit(product) }}
+                </td>
+
+                <td>
+                  {{
+                    +product.standard_price
+                      | currency:
+                        'BRL':
+                        'symbol':
+                        '1.2-2':
+                        'pt-BR'
+                  }}
+                </td>
+
+                <td>
+                  <span
+                    class="status-badge"
+                    [class.status-active]="
+                      product.status === 'ATIVO'
+                    "
+                    [class.status-inactive]="
+                      product.status === 'INATIVO'
+                    "
+                    [class.status-discontinued]="
+                      product.status ===
+                      'DESCONTINUADO'
+                    "
+                  >
+                    {{
+                      displayStatus(
+                        product.status
+                      )
+                    }}
+                  </span>
+                </td>
+
+                @if (canManageProducts()) {
+                  <td class="actions-column">
+                    <div class="row-actions">
+                      <button
+                        mat-icon-button
+                        type="button"
+                        aria-label="Editar produto"
+                        data-testid="edit-product-button"
+                        (click)="openEditPanel(product)"
+                      >
+                        <mat-icon>edit</mat-icon>
+                      </button>
+
+                      <mat-select
+                        class="status-action-select"
+                        aria-label="Alterar status do produto"
+                        data-testid="status-product-button"
+                        [value]="product.status"
+                        (selectionChange)="
+                          changeStatus(
+                            product,
+                            $event.value
+                          )
+                        "
+                      >
+                        <mat-option value="ATIVO">
+                          Ativo
+                        </mat-option>
+
+                        <mat-option value="INATIVO">
+                          Inativo
+                        </mat-option>
+
+                        <mat-option value="DESCONTINUADO">
+                          Descontinuado
+                        </mat-option>
+                      </mat-select>
+
+                      @if (canDeleteProducts()) {
+                        <button
+                          mat-icon-button
+                          type="button"
+                          class="danger-action"
+                          aria-label="Excluir produto"
+                          data-testid="delete-product-button"
+                          (click)="deleteProduct(product)"
+                        >
+                          <mat-icon>
+                            delete_outline
+                          </mat-icon>
+                        </button>
+                      }
+                    </div>
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  @if (panelOpen()) {
+    <div
+      class="panel-backdrop"
+      data-testid="product-panel"
+      (click)="closePanel()"
+    >
+      <aside
+        class="product-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-panel-title"
+        (click)="$event.stopPropagation()"
+      >
+        <header class="panel-header">
+          <div>
+            <p class="eyebrow">
+              Produto
+            </p>
+
+            <h2 id="product-panel-title">
+              {{
+                editingProduct()
+                  ? 'Editar produto'
+                  : 'Novo produto'
+              }}
+            </h2>
+          </div>
+
+          <button
+            mat-icon-button
+            type="button"
+            aria-label="Fechar painel"
+            (click)="closePanel()"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        </header>
+
+        <form
+          class="product-form"
+          [formGroup]="productForm"
+          (ngSubmit)="saveProduct()"
+        >
+          <section class="image-section">
+            <div class="image-preview">
+              @if (
+                imagePreviewUrl();
+                as previewUrl
+              ) {
+                <img
+                  [src]="previewUrl"
+                  alt="Prévia da imagem do produto"
+                />
+              } @else {
+                <mat-icon>
+                  add_photo_alternate
+                </mat-icon>
+              }
+            </div>
+
+            <div class="image-controls">
+              <strong>
+                Imagem do produto
+              </strong>
+
+              <span>
+                JPG, PNG ou WebP, até 5 MB.
+              </span>
+
+              <div class="image-actions">
+                <label
+                  class="upload-button"
+                >
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp"
+                    (change)="onImageSelected($event)"
+                  />
+
+                  Selecionar imagem
+                </label>
+
+                @if (
+                  editingProduct()
+                    ?.image_path
+                ) {
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    data-testid="remove-product-image-button"
+                    [disabled]="saving()"
+                    (click)="removeCurrentImage()"
+                  >
+                    Remover imagem
+                  </button>
+                }
+              </div>
+            </div>
+          </section>
+
+          <div class="form-grid">
+            <mat-form-field
+              appearance="outline"
+            >
+              <mat-label>Código</mat-label>
+
+              <input
+                matInput
+                formControlName="code"
+                placeholder="Gerado automaticamente"
+              />
+            </mat-form-field>
+
+            <mat-form-field
+              appearance="outline"
+              class="full-width"
+            >
+              <mat-label>Nome</mat-label>
+
+              <input
+                matInput
+                formControlName="name"
+                data-testid="product-name-input"
+              />
+
+              @if (
+                productForm.controls.name
+                  .hasError('required')
+              ) {
+                <mat-error>
+                  O nome é obrigatório.
+                </mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field
+              appearance="outline"
+            >
+              <mat-label>Unidade</mat-label>
+
+              <mat-select
+                formControlName="unit"
+              >
+                <mat-option value="UNIDADE">
+                  Unidade
+                </mat-option>
+                <mat-option value="QUILOGRAMA">
+                  Quilograma
+                </mat-option>
+                <mat-option value="GRAMA">
+                  Grama
+                </mat-option>
+                <mat-option value="LITRO">
+                  Litro
+                </mat-option>
+                <mat-option value="MILILITRO">
+                  Mililitro
+                </mat-option>
+                <mat-option value="CAIXA">
+                  Caixa
+                </mat-option>
+                <mat-option value="PACOTE">
+                  Pacote
+                </mat-option>
+                <mat-option value="SACO">
+                  Saco
+                </mat-option>
+                <mat-option value="OUTRO">
+                  Outro
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            @if (
+              productForm.controls.unit
+                .value === 'OUTRO'
+            ) {
+              <mat-form-field
+                appearance="outline"
+              >
+                <mat-label>
+                  Unidade personalizada
+                </mat-label>
+
+                <input
+                  matInput
+                  formControlName="custom_unit"
+                />
+              </mat-form-field>
+            }
+
+            <mat-form-field
+              appearance="outline"
+            >
+              <mat-label>
+                Preço de custo
+              </mat-label>
+
+              <span matTextPrefix>
+                R$&nbsp;
+              </span>
+
+              <input
+                matInput
+                type="number"
+                min="0"
+                step="0.01"
+                formControlName="cost_price"
+              />
+            </mat-form-field>
+
+            <mat-form-field
+              appearance="outline"
+            >
+              <mat-label>
+                Preço padrão
+              </mat-label>
+
+              <span matTextPrefix>
+                R$&nbsp;
+              </span>
+
+              <input
+                matInput
+                type="number"
+                min="0"
+                step="0.01"
+                formControlName="standard_price"
+              />
+            </mat-form-field>
+
+            <mat-form-field
+              appearance="outline"
+            >
+              <mat-label>
+                Preço mínimo
+              </mat-label>
+
+              <span matTextPrefix>
+                R$&nbsp;
+              </span>
+
+              <input
+                matInput
+                type="number"
+                min="0"
+                step="0.01"
+                formControlName="minimum_price"
+              />
+            </mat-form-field>
+
+            <mat-form-field
+              appearance="outline"
+              class="full-width"
+            >
+              <mat-label>
+                Descrição curta
+              </mat-label>
+
+              <input
+                matInput
+                formControlName="short_description"
+              />
+            </mat-form-field>
+
+            <mat-form-field
+              appearance="outline"
+              class="full-width"
+            >
+              <mat-label>
+                Descrição detalhada
+              </mat-label>
+
+              <textarea
+                matInput
+                rows="3"
+                formControlName="detailed_description"
+              ></textarea>
+            </mat-form-field>
+
+            <mat-form-field
+              appearance="outline"
+              class="full-width"
+            >
+              <mat-label>
+                Observações internas
+              </mat-label>
+
+              <textarea
+                matInput
+                rows="3"
+                formControlName="internal_notes"
+              ></textarea>
+            </mat-form-field>
+          </div>
+
+          <footer class="panel-actions">
+            <button
+              mat-stroked-button
+              type="button"
+              data-testid="cancel-product-button"
+              (click)="closePanel()"
+            >
+              Cancelar
+            </button>
+
+            <button
+              mat-flat-button
+              type="submit"
+              data-testid="save-product-button"
+              [disabled]="
+                productForm.invalid ||
+                saving()
+              "
+            >
+              {{
+                saving()
+                  ? 'Salvando...'
+                  : 'Salvar'
+              }}
+            </button>
+          </footer>
+        </form>
+      </aside>
+    </div>
+  }
+
+</section>

@@ -77,10 +77,10 @@ export const routes: Routes = [
         title: 'Produtos',
         loadComponent: () =>
           import(
-            './features/placeholder/feature-placeholder.component'
+            './features/products/products.component'
           ).then(
             (module) =>
-              module.FeaturePlaceholderComponent,
+              module.ProductsComponent,
           ),
       },
       {

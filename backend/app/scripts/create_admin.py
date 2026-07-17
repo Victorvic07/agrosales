@@ -1,6 +1,7 @@
 import asyncio
 import os
 
+import app.database.models  # noqa: F401
 from app.core.enums import UserRole
 from app.database.session import async_session_factory
 from app.modules.users.repository import UserRepository

@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import Boolean, DateTime, Enum, String, func
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column
-
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.enums import UserRole
 from app.database.base import Base
 
@@ -57,4 +57,9 @@ class User(Base):
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
+    )
+
+    order_status_changes = relationship(
+        "OrderStatusHistory",
+        back_populates="changed_by_user",
     )

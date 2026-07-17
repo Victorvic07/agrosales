@@ -128,10 +128,10 @@ export const routes: Routes = [
         title: 'Clientes',
         loadComponent: () =>
           import(
-            './features/placeholder/feature-placeholder.component'
+            './features/customers/customers.component'
           ).then(
             (module) =>
-              module.FeaturePlaceholderComponent,
+              module.CustomersComponent,
           ),
       },
       {

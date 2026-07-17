@@ -1,0 +1,495 @@
+<section class="customers-page">
+  <header class="customers-header">
+    <div>
+      <p class="eyebrow">
+        Cadastros
+      </p>
+
+      <h1>
+        Clientes
+      </h1>
+
+      <p class="subtitle">
+        Consulte, cadastre e edite os clientes do AgroSales.
+      </p>
+    </div>
+
+    <button
+      mat-flat-button
+      type="button"
+      (click)="openCreatePanel()"
+      data-testid="new-customer-button"
+    >
+      <mat-icon>add</mat-icon>
+      Novo cliente
+    </button>
+  </header>
+
+  <div class="filters">
+    <mat-form-field appearance="outline">
+      <mat-label>
+        Buscar cliente
+      </mat-label>
+
+      <mat-icon matPrefix>
+        search
+      </mat-icon>
+
+      <input
+        matInput
+        type="search"
+        placeholder="Nome ou CPF/CNPJ"
+        [ngModel]="searchTerm()"
+        (ngModelChange)="
+          updateSearchTerm($event)
+        "
+        data-testid="customer-search"
+      />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>
+        Status
+      </mat-label>
+
+      <mat-select
+        [ngModel]="statusFilter()"
+        (ngModelChange)="
+          updateStatusFilter($event)
+        "
+        data-testid="customer-status-filter"
+      >
+        <mat-option value="TODOS">
+          Todos
+        </mat-option>
+
+        <mat-option value="ATIVO">
+          Ativos
+        </mat-option>
+
+        <mat-option value="INATIVO">
+          Inativos
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  @if (loading()) {
+    <div
+      class="state-message"
+      data-testid="customers-loading"
+    >
+      Carregando clientes...
+    </div>
+  } @else if (errorMessage()) {
+    <div
+      class="state-message state-message--error"
+      data-testid="customers-error"
+    >
+      {{ errorMessage() }}
+    </div>
+  } @else if (
+    filteredCustomers().length === 0
+  ) {
+    <div
+      class="state-message"
+      data-testid="customers-empty"
+    >
+      Nenhum cliente encontrado.
+    </div>
+  } @else {
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>CPF/CNPJ</th>
+            <th>Telefone</th>
+            <th>Cidade/UF</th>
+            <th>Status</th>
+            <th class="actions-column">
+              Ações
+            </th>
+          </tr>
+        </thead>
+
+        <tbody>
+          @for (
+            customer of filteredCustomers();
+            track customer.id
+          ) {
+            <tr>
+              <td data-label="Nome">
+                <strong>
+                  {{ customer.name }}
+                </strong>
+              </td>
+
+              <td data-label="CPF/CNPJ">
+                {{
+                  displayDocument(
+                    customer
+                  )
+                }}
+              </td>
+
+              <td data-label="Telefone">
+                {{
+                  formatPhone(
+                    customer.phone
+                  )
+                }}
+              </td>
+
+              <td data-label="Cidade/UF">
+                {{
+                  displayCityState(
+                    customer
+                  )
+                }}
+              </td>
+
+              <td data-label="Status">
+                <span
+                  class="status-badge"
+                  [class.status-badge--inactive]="
+                    !customer.is_active
+                  "
+                >
+                  {{
+                    customer.is_active
+                      ? 'Ativo'
+                      : 'Inativo'
+                  }}
+                </span>
+              </td>
+
+              <td
+                data-label="Ações"
+                class="actions"
+              >
+                <button
+                  mat-icon-button
+                  type="button"
+                  aria-label="Editar cliente"
+                  (click)="
+                    openEditPanel(customer)
+                  "
+                  data-testid="edit-customer-button"
+                >
+                  <mat-icon>edit</mat-icon>
+                </button>
+
+                @if (canManageStatus()) {
+                  <button
+                    mat-icon-button
+                    type="button"
+                    [attr.aria-label]="
+                      customer.is_active
+                        ? 'Inativar cliente'
+                        : 'Ativar cliente'
+                    "
+                    (click)="
+                      changeStatus(
+                        customer,
+                        !customer.is_active
+                      )
+                    "
+                    data-testid="status-customer-button"
+                  >
+                    <mat-icon>
+                      {{
+                        customer.is_active
+                          ? 'block'
+                          : 'check_circle'
+                      }}
+                    </mat-icon>
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+  @if (panelOpen()) {
+    <div
+      class="drawer-backdrop"
+      (click)="closePanel()"
+    ></div>
+
+    <aside
+      class="customer-drawer"
+      data-testid="customer-drawer"
+      aria-label="Formulário de cliente"
+    >
+      <header class="drawer-header">
+        <div>
+          <p class="eyebrow">
+            {{
+              editingCustomer()
+                ? 'Edição'
+                : 'Cadastro'
+            }}
+          </p>
+
+          <h2>
+            {{
+              editingCustomer()
+                ? 'Editar cliente'
+                : 'Novo cliente'
+            }}
+          </h2>
+        </div>
+
+        <button
+          mat-icon-button
+          type="button"
+          aria-label="Fechar formulário"
+          (click)="closePanel()"
+        >
+          <mat-icon>close</mat-icon>
+        </button>
+      </header>
+
+      <form
+        class="customer-form"
+        [formGroup]="customerForm"
+        (ngSubmit)="saveCustomer()"
+      >
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>
+              Tipo de cliente
+            </mat-label>
+
+            <mat-select
+              formControlName="customer_type"
+            >
+              <mat-option value="INDIVIDUAL">
+                Pessoa física
+              </mat-option>
+
+              <mat-option value="COMPANY">
+                Empresa
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>
+              CPF/CNPJ
+            </mat-label>
+
+            <input
+              matInput
+              formControlName="document"
+              [placeholder]="
+                customerForm.controls
+                  .document_type.value
+              "
+            />
+
+            @if (
+              customerForm.controls.document
+                .touched &&
+              customerForm.controls.document
+                .invalid
+            ) {
+              <mat-error>
+                Informe o documento.
+              </mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field
+            appearance="outline"
+            class="full-width"
+          >
+            <mat-label>
+              Nome
+            </mat-label>
+
+            <input
+              matInput
+              formControlName="name"
+            />
+
+            @if (
+              customerForm.controls.name
+                .touched &&
+              customerForm.controls.name
+                .invalid
+            ) {
+              <mat-error>
+                Informe o nome.
+              </mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>
+              Telefone
+            </mat-label>
+
+            <input
+              matInput
+              formControlName="phone"
+            />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>
+              E-mail
+            </mat-label>
+
+            <input
+              matInput
+              type="email"
+              formControlName="email"
+            />
+
+            @if (
+              customerForm.controls.email
+                .touched &&
+              customerForm.controls.email
+                .invalid
+            ) {
+              <mat-error>
+                Informe um e-mail válido.
+              </mat-error>
+            }
+          </mat-form-field>
+        </div>
+
+        <button
+          class="address-toggle"
+          type="button"
+          (click)="toggleAddress()"
+        >
+          <span>
+            Endereço
+          </span>
+
+          <mat-icon>
+            {{
+              addressExpanded()
+                ? 'expand_less'
+                : 'expand_more'
+            }}
+          </mat-icon>
+        </button>
+
+        @if (addressExpanded()) {
+          <div class="form-grid address-grid">
+            <mat-form-field
+              appearance="outline"
+              class="full-width"
+            >
+              <mat-label>
+                Logradouro
+              </mat-label>
+
+              <input
+                matInput
+                formControlName="street"
+              />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>
+                Número
+              </mat-label>
+
+              <input
+                matInput
+                formControlName="number"
+              />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>
+                Complemento
+              </mat-label>
+
+              <input
+                matInput
+                formControlName="complement"
+              />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>
+                Bairro
+              </mat-label>
+
+              <input
+                matInput
+                formControlName="neighborhood"
+              />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>
+                Cidade
+              </mat-label>
+
+              <input
+                matInput
+                formControlName="city"
+              />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>
+                UF
+              </mat-label>
+
+              <input
+                matInput
+                maxlength="2"
+                formControlName="state"
+              />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>
+                CEP
+              </mat-label>
+
+              <input
+                matInput
+                formControlName="zip_code"
+              />
+            </mat-form-field>
+          </div>
+        }
+
+        <footer class="drawer-actions">
+          <button
+            mat-button
+            type="button"
+            (click)="closePanel()"
+          >
+            Cancelar
+          </button>
+
+          <button
+            mat-flat-button
+            type="submit"
+            [disabled]="saving()"
+            data-testid="save-customer-button"
+          >
+            {{
+              saving()
+                ? 'Salvando...'
+                : 'Salvar'
+            }}
+          </button>
+        </footer>
+      </form>
+    </aside>
+  }
+
+</section>

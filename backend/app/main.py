@@ -1,23 +1,26 @@
+from pathlib import Path
+
 from fastapi import FastAPI
-from app.api.routers.categories import router as categories_router
+from fastapi.staticfiles import StaticFiles
+
 from app.api.routers.auth import router as auth_router
+from app.api.routers.categories import router as categories_router
+from app.api.routers.customers import router as customers_router
 from app.api.routers.health import router as health_router
-from app.core.config import get_settings
-from app.api.routers.users import router as users_router
-from app.api.routers.products import router as products_router
+from app.api.routers.inventory_movements import (
+    router as inventory_movements_router,
+)
 from app.api.routers.lots import router as lots_router
 from app.api.routers.orders import router as orders_router
 from app.api.routers.product_variations import (
     router as product_variations_router,
 )
-from app.api.routers.inventory_movements import (
-    router as inventory_movements_router,
-)
+from app.api.routers.products import router as products_router
 from app.api.routers.stock_reservations import (
     router as stock_reservations_router,
 )
-from app.api.routers.customers import router as customers_router
-
+from app.api.routers.users import router as users_router
+from app.core.config import get_settings
 
 settings = get_settings()
 
@@ -25,6 +28,18 @@ app = FastAPI(
     title=settings.app_name,
     debug=settings.app_debug,
     version="0.1.0",
+)
+
+uploads_directory = Path("uploads")
+uploads_directory.mkdir(
+    parents=True,
+    exist_ok=True,
+)
+
+app.mount(
+    "/uploads",
+    StaticFiles(directory=uploads_directory),
+    name="uploads",
 )
 
 app.include_router(health_router, prefix=settings.api_v1_prefix)

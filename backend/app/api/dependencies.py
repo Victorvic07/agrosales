@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
@@ -24,6 +25,7 @@ from app.modules.orders.order_repository import OrderRepository
 from app.modules.orders.order_status_history_repository import (
     OrderStatusHistoryRepository,
 )
+from app.modules.products.image_service import ProductImageService
 from app.modules.products.repository import ProductRepository
 from app.modules.products.variation_repository import (
     ProductVariationRepository,
@@ -53,6 +55,18 @@ def get_category_repository(
     session: SessionDependency,
 ) -> CategoryRepository:
     return CategoryRepository(session)
+
+
+def get_product_repository(
+    session: SessionDependency,
+) -> ProductRepository:
+    return ProductRepository(session)
+
+
+def get_product_image_service() -> ProductImageService:
+    return ProductImageService(
+        upload_directory=Path("uploads"),
+    )
 
 
 async def get_current_user(
@@ -99,12 +113,6 @@ def require_roles(
         return current_user
 
     return dependency
-
-
-def get_product_repository(
-    session: SessionDependency,
-) -> ProductRepository:
-    return ProductRepository(session)
 
 
 def get_product_variation_repository(

@@ -1,15 +1,29 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Response,
+    UploadFile,
+    status,
+)
 
 from app.api.dependencies import (
     get_category_repository,
+    get_product_image_service,
     get_product_repository,
     require_roles,
 )
 from app.core.enums import UserRole
 from app.modules.categories.repository import CategoryRepository
+from app.modules.products.image_service import (
+    InvalidProductImageError,
+    ProductImageService,
+    ProductImageTooLargeError,
+)
 from app.modules.products.repository import ProductRepository
 from app.modules.products.schemas import (
     ProductCreate,
@@ -37,10 +51,12 @@ router = APIRouter(
 def build_product_service(
     product_repository: ProductRepository,
     category_repository: CategoryRepository,
+    image_service: ProductImageService | None = None,
 ) -> ProductService:
     return ProductService(
         product_repository=product_repository,
         category_repository=category_repository,
+        image_service=image_service,
     )
 
 
@@ -258,6 +274,117 @@ async def update_product_status(
             product_id,
             data,
         )
+
+    except ProductNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+
+
+@router.post(
+    "/{product_id}/image",
+    response_model=ProductRead,
+)
+async def upload_product_image(
+    product_id: UUID,
+    file: Annotated[
+        UploadFile,
+        File(...),
+    ],
+    product_repository: Annotated[
+        ProductRepository,
+        Depends(get_product_repository),
+    ],
+    category_repository: Annotated[
+        CategoryRepository,
+        Depends(get_category_repository),
+    ],
+    image_service: Annotated[
+        ProductImageService,
+        Depends(get_product_image_service),
+    ],
+    _: Annotated[
+        User,
+        Depends(
+            require_roles(
+                UserRole.ADMINISTRADOR,
+                UserRole.PRODUTOR,
+            )
+        ),
+    ],
+) -> ProductRead:
+    service = build_product_service(
+        product_repository,
+        category_repository,
+        image_service,
+    )
+
+    try:
+        content = await file.read()
+
+        return await service.upload_image(
+            product_id=product_id,
+            content=content,
+            content_type=file.content_type or "",
+        )
+
+    except ProductNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+
+    except (
+        InvalidProductImageError,
+        ProductImageTooLargeError,
+        ValueError,
+    ) as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
+
+    finally:
+        await file.close()
+
+
+@router.delete(
+    "/{product_id}/image",
+    response_model=ProductRead,
+)
+async def remove_product_image(
+    product_id: UUID,
+    product_repository: Annotated[
+        ProductRepository,
+        Depends(get_product_repository),
+    ],
+    category_repository: Annotated[
+        CategoryRepository,
+        Depends(get_category_repository),
+    ],
+    image_service: Annotated[
+        ProductImageService,
+        Depends(get_product_image_service),
+    ],
+    _: Annotated[
+        User,
+        Depends(
+            require_roles(
+                UserRole.ADMINISTRADOR,
+                UserRole.PRODUTOR,
+            )
+        ),
+    ],
+) -> ProductRead:
+    service = build_product_service(
+        product_repository,
+        category_repository,
+        image_service,
+    )
+
+    try:
+        return await service.remove_image(product_id)
 
     except ProductNotFoundError as error:
         raise HTTPException(

@@ -6,6 +6,7 @@ import pytest
 
 from app.modules.categories.model import Category
 from app.modules.products.enums import ProductStatus, ProductUnit
+from app.modules.products.image_service import ProductImageService
 from app.modules.products.model import Product
 from app.modules.products.schemas import (
     ProductCreate,
@@ -628,3 +629,64 @@ async def test_update_rejects_custom_unit_without_other_unit() -> None:
             product_id,
             ProductUpdate(custom_unit="Saco"),
         )
+
+@pytest.mark.asyncio
+async def test_deletes_product_image_when_deleting_product() -> None:
+    product_id = uuid4()
+
+    product = Product(
+        id=product_id,
+        code="PRD-000001",
+        name="Tomate",
+        image_path="products/imagem.webp",
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+    image_service = AsyncMock(spec=ProductImageService)
+
+    product_repository.get_by_id.return_value = product
+    product_repository.has_variations.return_value = False
+
+    service = ProductService(
+        product_repository=product_repository,
+        category_repository=category_repository,
+        image_service=image_service,
+    )
+
+    await service.delete(product_id)
+
+    product_repository.delete.assert_awaited_once_with(product)
+    image_service.remove.assert_called_once_with(
+        "products/imagem.webp"
+    )
+
+
+@pytest.mark.asyncio
+async def test_delete_product_without_image_does_not_remove_file() -> None:
+    product_id = uuid4()
+
+    product = Product(
+        id=product_id,
+        code="PRD-000001",
+        name="Tomate",
+        image_path=None,
+    )
+
+    product_repository = AsyncMock()
+    category_repository = AsyncMock()
+    image_service = AsyncMock(spec=ProductImageService)
+
+    product_repository.get_by_id.return_value = product
+    product_repository.has_variations.return_value = False
+
+    service = ProductService(
+        product_repository=product_repository,
+        category_repository=category_repository,
+        image_service=image_service,
+    )
+
+    await service.delete(product_id)
+
+    product_repository.delete.assert_awaited_once_with(product)
+    image_service.remove.assert_not_called()

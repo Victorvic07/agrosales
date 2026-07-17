@@ -6,6 +6,7 @@ from app.modules.products.code_generator import (
     generate_unique_product_code,
 )
 from app.modules.products.enums import ProductUnit
+from app.modules.products.image_service import ProductImageService
 from app.modules.products.model import Product
 from app.modules.products.repository import ProductRepository
 from app.modules.products.schemas import (
@@ -44,9 +45,11 @@ class ProductService:
         self,
         product_repository: ProductRepository,
         category_repository: CategoryRepository,
+        image_service: ProductImageService | None = None,
     ) -> None:
         self.product_repository = product_repository
         self.category_repository = category_repository
+        self.image_service = image_service
 
     async def create(
         self,
@@ -99,6 +102,55 @@ class ProductService:
             changes,
         )
 
+    async def upload_image(
+        self,
+        *,
+        product_id: UUID,
+        content: bytes,
+        content_type: str,
+    ) -> Product:
+        product = await self.get_by_id(product_id)
+
+        if self.image_service is None:
+            raise RuntimeError(
+                "Serviço de imagem não configurado"
+            )
+
+        image_path = self.image_service.save(
+            product_code=product.code,
+            content=content,
+            content_type=content_type,
+            previous_path=product.image_path,
+        )
+
+        return await self.product_repository.update_image_path(
+            product,
+            image_path,
+        )
+
+    async def remove_image(
+        self,
+        product_id: UUID,
+    ) -> Product:
+        product = await self.get_by_id(product_id)
+
+        if product.image_path is None:
+            return product
+
+        if self.image_service is None:
+            raise RuntimeError(
+                "Serviço de imagem não configurado"
+            )
+
+        self.image_service.remove(
+            product.image_path
+        )
+
+        return await self.product_repository.update_image_path(
+            product,
+            None,
+        )
+
     async def update_status(
         self,
         product_id: UUID,
@@ -130,6 +182,14 @@ class ProductService:
             )
 
         await self.product_repository.delete(product)
+
+        if (
+            product.image_path is not None
+            and self.image_service is not None
+        ):
+            self.image_service.remove(
+                product.image_path
+            )
 
     async def _prepare_update_changes(
         self,
@@ -170,6 +230,7 @@ class ProductService:
             "name",
             product.name,
         )
+
         final_category_id = changes.get(
             "category_id",
             product.category_id,
@@ -200,6 +261,7 @@ class ProductService:
             "standard_price",
             product.standard_price,
         )
+
         final_minimum_price = changes.get(
             "minimum_price",
             product.minimum_price,
@@ -214,6 +276,7 @@ class ProductService:
             "unit",
             product.unit,
         )
+
         final_custom_unit = changes.get(
             "custom_unit",
             product.custom_unit,

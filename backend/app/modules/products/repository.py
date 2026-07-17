@@ -144,3 +144,15 @@ class ProductRepository:
     ) -> None:
         await self.session.delete(product)
         await self.session.commit()
+
+    async def update_image_path(
+        self,
+        product: Product,
+        image_path: str | None,
+    ) -> Product:
+        product.image_path = image_path
+
+        await self.session.commit()
+        await self.session.refresh(product)
+
+        return product

@@ -1,0 +1,17 @@
+<button
+  class="submit-button"
+  mat-flat-button
+  type="submit"
+  [disabled]="loading()"
+>
+  @if (loading()) {
+    <span>Entrando...</span>
+  } @else {
+    <ng-container>
+      Entrar
+      <mat-icon iconPositionEnd>
+        arrow_forward
+      </mat-icon>
+    </ng-container>
+  }
+</button>

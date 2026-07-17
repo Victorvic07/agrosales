@@ -1,0 +1,26 @@
+<mat-sidenav-container>
+  <mat-sidenav
+    #sidenav
+    [mode]="
+      (isMobile$ | async)
+        ? 'over'
+        : 'side'
+    "
+    [opened]="
+      (isMobile$ | async)
+        === false
+    "
+  >
+    <app-sidebar />
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <app-topbar
+      (menuToggle)="toggleMenu()"
+    />
+
+    <main class="content">
+      <router-outlet />
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>

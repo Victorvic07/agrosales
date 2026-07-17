@@ -1,0 +1,39 @@
+.topbar {
+  display: flex;
+  align-items: center;
+  min-height: 72px;
+  padding: 0 1rem;
+  border-bottom:
+    1px solid #e3e9e5;
+  background: #ffffff;
+}
+
+.topbar__spacer {
+  flex: 1;
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user__details {
+  display: grid;
+  text-align: right;
+}
+
+.user__details strong {
+  color: #1c2921;
+}
+
+.user__details small {
+  color: #738078;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 600px) {
+  .user__details {
+    display: none;
+  }
+}

@@ -1,0 +1,56 @@
+.page {
+  display: grid;
+  gap: 1.5rem;
+}
+
+nav,
+p {
+  color: #66736a;
+}
+
+.page-header,
+.content-card {
+  padding:
+    clamp(
+      1.25rem,
+      3vw,
+      2rem
+    );
+  border:
+    1px solid #e0e6e2;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.page-header {
+  display: flex;
+  justify-content:
+    space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.page-header mat-icon {
+  width: auto;
+  height: auto;
+  color: #ef7d2d;
+  font-size: 3rem;
+}
+
+h1 {
+  margin: 0.35rem 0;
+  font-size:
+    clamp(
+      2rem,
+      4vw,
+      3.4rem
+    );
+}
+
+.eyebrow {
+  color: #0f5c3c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}

@@ -101,7 +101,7 @@ describe('AuthService', () => {
       });
 
       const meRequest = http.expectOne(
-        '/api/v1/auth/me',
+        '/api/v1/users/me',
       );
 
       expect(

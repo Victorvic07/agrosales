@@ -71,7 +71,7 @@ export class AuthService {
         switchMap((loginResponse) =>
           this.http
             .get<AuthUser>(
-              '/api/v1/auth/me',
+              '/api/v1/users/me',
               {
                 headers: new HttpHeaders({
                   Authorization:

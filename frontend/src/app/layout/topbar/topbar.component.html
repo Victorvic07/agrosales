@@ -1,0 +1,38 @@
+<header class="topbar">
+  <button
+    mat-icon-button
+    type="button"
+    aria-label="Abrir ou recolher menu"
+    (click)="menuToggle.emit()"
+  >
+    <mat-icon>menu</mat-icon>
+  </button>
+
+  <div class="topbar__spacer"></div>
+
+  @if (
+    auth.currentUser();
+    as user
+  ) {
+    <div class="user">
+      <span class="user__details">
+        <strong>
+          {{ user.name }}
+        </strong>
+
+        <small>
+          {{ user.role }}
+        </small>
+      </span>
+
+      <button
+        mat-icon-button
+        type="button"
+        aria-label="Sair"
+        (click)="logout()"
+      >
+        <mat-icon>logout</mat-icon>
+      </button>
+    </div>
+  }
+</header>

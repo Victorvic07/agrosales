@@ -1,39 +1,35 @@
 from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
-from app.modules.products.repository import ProductRepository
+
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.modules.categories.repository import CategoryRepository
+
 from app.core.config import get_settings
 from app.core.enums import UserRole
 from app.core.security import decode_access_token
 from app.database.session import get_db_session
-from app.modules.users.model import User
+from app.modules.categories.repository import CategoryRepository
+from app.modules.customers.customer_repository import CustomerRepository
 from app.modules.inventory.lot_repository import LotRepository
-from app.modules.users.repository import UserRepository
-from app.modules.inventory.lot_repository import LotRepository
-from app.modules.orders.order_repository import OrderRepository
 from app.modules.inventory.movement_repository import (
     InventoryMovementRepository,
-)
-from app.modules.products.variation_repository import (
-    ProductVariationRepository,
 )
 from app.modules.inventory.reservation_repository import (
     ReservationRepository,
 )
-from app.modules.customers.customer_repository import (
-    CustomerRepository,
-)
+from app.modules.orders.order_repository import OrderRepository
 from app.modules.orders.order_status_history_repository import (
     OrderStatusHistoryRepository,
 )
-
-
-
+from app.modules.products.repository import ProductRepository
+from app.modules.products.variation_repository import (
+    ProductVariationRepository,
+)
+from app.modules.users.model import User
+from app.modules.users.repository import UserRepository
 
 settings = get_settings()
 
@@ -41,10 +37,15 @@ oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl=f"{settings.api_v1_prefix}/auth/login"
 )
 
-SessionDependency = Annotated[AsyncSession, Depends(get_db_session)]
+SessionDependency = Annotated[
+    AsyncSession,
+    Depends(get_db_session),
+]
 
 
-def get_user_repository(session: SessionDependency) -> UserRepository:
+def get_user_repository(
+    session: SessionDependency,
+) -> UserRepository:
     return UserRepository(session)
 
 
@@ -78,56 +79,71 @@ async def get_current_user(
     return user
 
 
-def require_roles(*allowed_roles: UserRole) -> Callable:
+def require_roles(
+    *allowed_roles: UserRole,
+) -> Callable:
     async def dependency(
-        current_user: Annotated[User, Depends(get_current_user)],
+        current_user: Annotated[
+            User,
+            Depends(get_current_user),
+        ],
     ) -> User:
         if current_user.role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Você não possui permissão para esta ação",
+                detail=(
+                    "Você não possui permissão para esta ação"
+                ),
             )
 
         return current_user
 
     return dependency
 
+
 def get_product_repository(
     session: SessionDependency,
 ) -> ProductRepository:
     return ProductRepository(session)
+
 
 def get_product_variation_repository(
     session: SessionDependency,
 ) -> ProductVariationRepository:
     return ProductVariationRepository(session)
 
+
 def get_lot_repository(
     session: SessionDependency,
 ) -> LotRepository:
     return LotRepository(session)
+
 
 def get_inventory_movement_repository(
     session: SessionDependency,
 ) -> InventoryMovementRepository:
     return InventoryMovementRepository(session)
 
+
 def get_reservation_repository(
     session: SessionDependency,
 ) -> ReservationRepository:
     return ReservationRepository(session)
+
+
 def get_customer_repository(
     session: SessionDependency,
 ) -> CustomerRepository:
     return CustomerRepository(session)
+
+
 def get_order_repository(
     session: SessionDependency,
 ) -> OrderRepository:
     return OrderRepository(session)
+
+
 def get_order_status_history_repository(
-    session: Annotated[
-        AsyncSession,
-        Depends(get_db_session),
-    ],
+    session: SessionDependency,
 ) -> OrderStatusHistoryRepository:
     return OrderStatusHistoryRepository(session)

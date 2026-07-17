@@ -1,3 +1,4 @@
+from app.modules.products.enums import ProductStatus
 from app.modules.products.repository import ProductRepository
 from app.modules.products.variation_model import ProductVariation
 from app.modules.products.variation_repository import (
@@ -31,15 +32,22 @@ class ProductVariationService:
         self,
         data: ProductVariationCreate,
     ) -> ProductVariation:
-        product = await self.product_repository.get_by_id(data.product_id)
+        product = await self.product_repository.get_by_id(
+            data.product_id
+        )
 
-        if product is None or not product.is_active:
+        if (
+            product is None
+            or product.status != ProductStatus.ATIVO
+        ):
             raise ProductNotFoundError(
                 "Produto não encontrado ou inativo"
             )
 
-        existing = await self.variation_repository.get_by_internal_code(
-            data.internal_code
+        existing = (
+            await self.variation_repository.get_by_internal_code(
+                data.internal_code
+            )
         )
 
         if existing is not None:

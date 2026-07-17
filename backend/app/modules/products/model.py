@@ -115,3 +115,29 @@ class Product(Base):
     )
 
     category = relationship("Category")
+
+    @property
+    def description(self) -> str | None:
+        return self.short_description
+
+    @description.setter
+    def description(
+        self,
+        value: str | None,
+    ) -> None:
+        self.short_description = value
+
+    @property
+    def is_active(self) -> bool:
+        return self.status == ProductStatus.ATIVO
+
+    @is_active.setter
+    def is_active(
+        self,
+        value: bool,
+    ) -> None:
+        self.status = (
+            ProductStatus.ATIVO
+            if value
+            else ProductStatus.INATIVO
+        )

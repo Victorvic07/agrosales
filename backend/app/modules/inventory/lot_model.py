@@ -1,19 +1,25 @@
 from datetime import date, datetime
 from decimal import Decimal
+from enum import StrEnum
 from uuid import UUID, uuid4
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, Numeric, String, func
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
 
 
-class LotStatus(str, Enum):
+class LotStatus(StrEnum):
     ACTIVE = "ACTIVE"
-    NEAR_EXPIRATION = "NEAR_EXPIRATION"
+    INACTIVE = "INACTIVE"
+
+
+class ExpirationState(StrEnum):
     EXPIRED = "EXPIRED"
-    DEPLETED = "DEPLETED"
+    EXPIRES_TODAY = "EXPIRES_TODAY"
+    EXPIRING_SOON = "EXPIRING_SOON"
+    REGULAR = "REGULAR"
 
 
 class Lot(Base):
@@ -61,9 +67,9 @@ class Lot(Base):
         nullable=False,
     )
 
-    status: Mapped[str] = mapped_column(
+    status: Mapped[LotStatus] = mapped_column(
         String(30),
-        default="ACTIVE",
+        default=LotStatus.ACTIVE,
         nullable=False,
     )
 
@@ -85,3 +91,15 @@ class Lot(Base):
     @property
     def available_quantity(self) -> Decimal:
         return self.physical_quantity - self.reserved_quantity
+
+    @property
+    def expiration_state(self) -> ExpirationState:
+        days_until_expiration = (self.expiration_date - date.today()).days
+
+        if days_until_expiration < 0:
+            return ExpirationState.EXPIRED
+        if days_until_expiration == 0:
+            return ExpirationState.EXPIRES_TODAY
+        if days_until_expiration <= 30:
+            return ExpirationState.EXPIRING_SOON
+        return ExpirationState.REGULAR

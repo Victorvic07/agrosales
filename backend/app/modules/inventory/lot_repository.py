@@ -1,9 +1,10 @@
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.inventory.lot_model import Lot
+from app.modules.inventory.lot_model import Lot, LotStatus
 from app.modules.inventory.lot_schemas import LotCreate
 
 
@@ -34,13 +35,12 @@ class LotRepository:
             code=data.code.strip(),
             production_date=data.production_date,
             expiration_date=data.expiration_date,
-            physical_quantity=data.physical_quantity,
-            reserved_quantity=data.reserved_quantity,
-            status="ACTIVE",
+            physical_quantity=Decimal("0"),
+            reserved_quantity=Decimal("0"),
+            status=LotStatus.ACTIVE,
         )
 
         self.session.add(lot)
-        await self.session.commit()
-        await self.session.refresh(lot)
+        await self.session.flush()
 
         return lot

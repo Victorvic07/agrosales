@@ -86,18 +86,18 @@ def test_fefo_can_split_reservation_between_lots() -> None:
     assert second_lot.reserved_quantity == Decimal("20")
 
 
-def test_fefo_ignores_expired_and_depleted_lots() -> None:
+def test_fefo_ignores_expired_and_inactive_lots() -> None:
     expired_lot = create_lot(
         code="LOTE-VENCIDO",
         expiration_date=date(2026, 7, 10),
         physical_quantity=Decimal("100"),
     )
 
-    depleted_lot = create_lot(
-        code="LOTE-ESGOTADO",
+    inactive_lot = create_lot(
+        code="LOTE-INATIVO",
         expiration_date=date(2026, 7, 20),
         physical_quantity=Decimal("100"),
-        status="DEPLETED",
+        status="INACTIVE",
     )
 
     valid_lot = create_lot(
@@ -109,15 +109,35 @@ def test_fefo_ignores_expired_and_depleted_lots() -> None:
     service = FefoReservationService()
 
     allocations = service.reserve(
-        lots=[expired_lot, depleted_lot, valid_lot],
+        lots=[expired_lot, inactive_lot, valid_lot],
         requested_quantity=Decimal("20"),
         today=date(2026, 7, 14),
     )
 
     assert allocations[0].lot_id == valid_lot.id
     assert expired_lot.reserved_quantity == Decimal("0")
-    assert depleted_lot.reserved_quantity == Decimal("0")
+    assert inactive_lot.reserved_quantity == Decimal("0")
     assert valid_lot.reserved_quantity == Decimal("20")
+
+
+def test_fefo_rejects_legacy_near_expiration_lot() -> None:
+    legacy_lot = create_lot(
+        code="LOTE-LEGADO",
+        expiration_date=date(2026, 7, 20),
+        physical_quantity=Decimal("50"),
+        status="NEAR_EXPIRATION",
+    )
+
+    service = FefoReservationService()
+
+    with pytest.raises(InsufficientAvailableStockError):
+        service.reserve(
+            lots=[legacy_lot],
+            requested_quantity=Decimal("10"),
+            today=date(2026, 7, 14),
+        )
+
+    assert legacy_lot.reserved_quantity == Decimal("0")
 
 
 def test_fefo_does_not_change_lots_when_stock_is_insufficient() -> None:

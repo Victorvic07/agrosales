@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from app.modules.inventory.lot_model import Lot
+from app.modules.inventory.lot_model import Lot, LotStatus
 
 
 class InsufficientAvailableStockError(Exception):
@@ -35,7 +35,7 @@ class FefoReservationService:
                 lot
                 for lot in lots
                 if lot.expiration_date >= reference_date
-                and lot.status in {"ACTIVE", "NEAR_EXPIRATION"}
+                and lot.status == LotStatus.ACTIVE
                 and lot.available_quantity > 0
             ),
             key=lambda lot: (

@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import (
     get_lot_repository,
@@ -8,10 +9,10 @@ from app.api.dependencies import (
     require_roles,
 )
 from app.core.enums import UserRole
+from app.database.session import get_db_session
 from app.modules.inventory.lot_repository import LotRepository
 from app.modules.inventory.lot_schemas import LotCreate, LotRead
 from app.modules.inventory.lot_service import (
-    ExpiredLotError,
     LotAlreadyExistsError,
     LotService,
     ProductVariationNotFoundError,
@@ -57,6 +58,10 @@ async def list_lots(
 )
 async def create_lot(
     data: LotCreate,
+    session: Annotated[
+        AsyncSession,
+        Depends(get_db_session),
+    ],
     lot_repository: Annotated[
         LotRepository,
         Depends(get_lot_repository),
@@ -65,7 +70,7 @@ async def create_lot(
         ProductVariationRepository,
         Depends(get_product_variation_repository),
     ],
-    _: Annotated[
+    current_user: Annotated[
         User,
         Depends(
             require_roles(
@@ -76,8 +81,10 @@ async def create_lot(
     ],
 ) -> LotRead:
     service = LotService(
+        session=session,
         lot_repository=lot_repository,
         variation_repository=variation_repository,
+        user_id=current_user.id,
     )
 
     try:
@@ -92,11 +99,5 @@ async def create_lot(
     except LotAlreadyExistsError as error:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=str(error),
-        ) from error
-
-    except ExpiredLotError as error:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(error),
         ) from error

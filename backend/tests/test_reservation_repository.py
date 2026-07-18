@@ -36,6 +36,8 @@ async def test_repository_returns_eligible_lots() -> None:
     ]
 
     session.scalars.assert_awaited_once()
+    statement = session.scalars.await_args.args[0]
+    assert "NEAR_EXPIRATION" not in str(statement.compile().params)
 
 
 def test_repository_adds_reservation_to_session() -> None:

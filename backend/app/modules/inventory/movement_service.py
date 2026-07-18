@@ -26,6 +26,7 @@ class InventoryMovementService:
         quantity: Decimal,
         reason: str,
         notes: str | None = None,
+        commit: bool = True,
     ) -> InventoryMovement:
         previous_balance = lot.physical_quantity
 
@@ -71,7 +72,9 @@ class InventoryMovementService:
         )
 
         self.session.add(movement)
-        await self.session.commit()
-        await self.session.refresh(movement)
+
+        if commit:
+            await self.session.commit()
+            await self.session.refresh(movement)
 
         return movement

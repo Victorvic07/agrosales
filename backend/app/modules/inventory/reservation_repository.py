@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.modules.inventory.lot_model import Lot
+from app.modules.inventory.lot_model import Lot, LotStatus
 from app.modules.inventory.reservation_model import (
     ReservationStatus,
     StockReservation,
@@ -30,7 +30,7 @@ class ReservationRepository:
             .where(
                 Lot.product_variation_id == product_variation_id,
                 Lot.expiration_date >= reference_date,
-                Lot.status.in_(("ACTIVE", "NEAR_EXPIRATION")),
+                Lot.status == LotStatus.ACTIVE,
                 Lot.physical_quantity > Lot.reserved_quantity,
             )
             .order_by(

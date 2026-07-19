@@ -399,6 +399,43 @@
 
             <mat-form-field
               appearance="outline"
+            >
+              <mat-label>Categoria</mat-label>
+
+              <mat-select
+                formControlName="category_id"
+                data-testid="product-category-select"
+              >
+                @for (
+                  category of activeCategories();
+                  track category.id
+                ) {
+                  <mat-option [value]="category.id">
+                    {{ category.name }}
+                  </mat-option>
+                }
+              </mat-select>
+
+              @if (
+                productForm.controls.category_id
+                  .hasError('required')
+              ) {
+                <mat-error>
+                  A categoria é obrigatória.
+                </mat-error>
+              }
+
+              @if (
+                activeCategories().length === 0
+              ) {
+                <mat-hint>
+                  Nenhuma categoria ativa disponível.
+                </mat-hint>
+              }
+            </mat-form-field>
+
+            <mat-form-field
+              appearance="outline"
               class="full-width"
             >
               <mat-label>Nome</mat-label>

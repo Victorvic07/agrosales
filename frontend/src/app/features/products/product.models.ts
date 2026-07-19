@@ -1,3 +1,10 @@
+export interface Category {
+  id: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+}
+
 export type ProductUnit =
   | 'UNIDADE'
   | 'QUILOGRAMA'
@@ -32,7 +39,7 @@ export interface Product {
 }
 
 export interface ProductCreate {
-  category_id?: string | null;
+  category_id: string;
   code?: string | null;
   name: string;
   unit: ProductUnit;

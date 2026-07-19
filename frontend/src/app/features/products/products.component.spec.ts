@@ -50,7 +50,7 @@ describe('ProductsComponent', () => {
   const products: Product[] = [
     {
       id: '1',
-      category_id: null,
+      category_id: 'category-1',
       code: 'PRD-000001',
       name: 'Tomate',
       unit: 'UNIDADE',
@@ -66,7 +66,7 @@ describe('ProductsComponent', () => {
     },
     {
       id: '2',
-      category_id: null,
+      category_id: 'category-1',
       code: 'PRD-000002',
       name: 'Alface',
       unit: 'UNIDADE',
@@ -84,6 +84,7 @@ describe('ProductsComponent', () => {
 
   const productServiceMock = {
     list: vi.fn(),
+    listCategories: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     uploadImage: vi.fn(),
@@ -111,6 +112,17 @@ describe('ProductsComponent', () => {
     productServiceMock.list
       .mockReturnValue(
         of(products),
+      );
+
+    productServiceMock.listCategories
+      .mockReturnValue(
+        of([
+          {
+            id: 'category-1',
+            name: 'Hortaliças',
+            is_active: true,
+          },
+        ]),
       );
 
     productServiceMock.create
@@ -417,7 +429,8 @@ describe('ProductsComponent', () => {
   it('creates a product from a valid form', () => {
     component.openCreatePanel();
 
-    component.productForm.setValue({
+     component.productForm.setValue({
+      category_id: 'category-1',
       code: '',
       name: 'Tomate cereja',
       unit: 'UNIDADE',
@@ -442,7 +455,7 @@ describe('ProductsComponent', () => {
     expect(
       productServiceMock.create,
     ).toHaveBeenCalledWith({
-      category_id: null,
+      category_id: 'category-1',
       code: null,
       name: 'Tomate cereja',
       unit: 'UNIDADE',
@@ -496,7 +509,8 @@ describe('ProductsComponent', () => {
 
     component.openCreatePanel();
 
-    component.productForm.setValue({
+      component.productForm.setValue({
+      category_id: 'category-1',
       code: '',
       name: 'Tomate cereja',
       unit: 'UNIDADE',
@@ -557,6 +571,7 @@ describe('ProductsComponent', () => {
     component.openCreatePanel();
 
     component.productForm.setValue({
+      category_id: 'category-1',
       code: '',
       name: 'Tomate cereja',
       unit: 'UNIDADE',

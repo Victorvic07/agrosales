@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import {
+  Category,
   Product,
   ProductCreate,
   ProductStatusUpdate,
@@ -15,6 +16,13 @@ import {
 export class ProductService {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = '/api/v1/products';
+  private readonly categoriesUrl = '/api/v1/categories';
+
+  listCategories(): Observable<Category[]> {
+    return this.http.get<Category[]>(
+      this.categoriesUrl,
+    );
+  }
 
   list(): Observable<Product[]> {
     return this.http.get<Product[]>(

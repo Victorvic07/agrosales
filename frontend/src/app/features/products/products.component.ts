@@ -33,6 +33,7 @@ import {
   MatSelectModule,
 } from '@angular/material/select';
 import {
+  forkJoin,
   of,
   switchMap,
 } from 'rxjs';
@@ -44,6 +45,7 @@ import {
   UserRole,
 } from '../../core/models/user-role';
 import {
+  Category,
   Product,
   ProductCreate,
   ProductStatus,
@@ -88,6 +90,16 @@ export class ProductsComponent
   readonly products =
     signal<Product[]>([]);
 
+  readonly categories =
+    signal<Category[]>([]);
+
+  readonly activeCategories =
+    computed(() =>
+      this.categories().filter(
+        (category) => category.is_active,
+      ),
+    );
+
   readonly searchTerm =
     signal('');
 
@@ -120,6 +132,10 @@ export class ProductsComponent
   readonly productForm =
     this.formBuilder.nonNullable.group({
       code: [''],
+      category_id: [
+        '',
+        Validators.required,
+      ],
       name: [
         '',
         Validators.required,
@@ -226,28 +242,26 @@ export class ProductsComponent
     this.loading.set(true);
     this.errorMessage.set('');
 
-    this.productService
-      .list()
-      .subscribe({
-        next: (products) => {
-          this.products.set(
-            products,
-          );
-
-          this.loading.set(
-            false,
-          );
-        },
-        error: () => {
-          this.errorMessage.set(
-            'Não foi possível carregar os produtos.',
-          );
-
-          this.loading.set(
-            false,
-          );
-        },
-      });
+    forkJoin({
+      products: this.productService.list(),
+      categories:
+        this.productService.listCategories(),
+    }).subscribe({
+      next: ({
+        products,
+        categories,
+      }) => {
+        this.products.set(products);
+        this.categories.set(categories);
+        this.loading.set(false);
+      },
+      error: () => {
+        this.errorMessage.set(
+          'Não foi possível carregar os produtos.',
+        );
+        this.loading.set(false);
+      },
+    });
   }
 
   updateSearchTerm(
@@ -269,6 +283,7 @@ export class ProductsComponent
 
     this.productForm.reset({
       code: '',
+      category_id: '',
       name: '',
       unit: 'UNIDADE',
       custom_unit: '',
@@ -295,6 +310,8 @@ export class ProductsComponent
 
     this.productForm.reset({
       code: product.code,
+      category_id:
+        product.category_id ?? '',
       name: product.name,
       unit: product.unit,
       custom_unit:
@@ -505,7 +522,7 @@ export class ProductsComponent
       this.productForm.getRawValue();
 
     return {
-      category_id: null,
+      category_id: value.category_id,
       code:
         value.code.trim() || null,
       name: value.name.trim(),

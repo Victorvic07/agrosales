@@ -85,7 +85,8 @@ describe('ProductService', () => {
 
   it('creates a product', () => {
     const data: ProductCreate = {
-      name: 'Tomate',
+      category_id: 'category-1',
+    name: 'Tomate',
       unit: 'UNIDADE',
       cost_price: 8.5,
       standard_price: 15,

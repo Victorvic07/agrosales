@@ -1,7 +1,8 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import (
     get_inventory_movement_repository,
@@ -11,7 +12,10 @@ from app.api.dependencies import (
 from app.core.enums import UserRole
 from app.database.session import get_db_session
 from app.modules.inventory.lot_repository import LotRepository
-from app.modules.inventory.movement_model import InventoryMovement
+from app.modules.inventory.movement_model import (
+    InventoryMovement,
+    MovementType,
+)
 from app.modules.inventory.movement_repository import (
     InventoryMovementRepository,
 )
@@ -24,7 +28,6 @@ from app.modules.inventory.movement_service import (
     InventoryMovementService,
 )
 from app.modules.users.model import User
-from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(
     prefix="/inventory-movements",
@@ -50,7 +53,7 @@ async def list_inventory_movements(
             )
         ),
     ],
-    lot_id: UUID | None = Query(default=None),
+    lot_id: UUID | None = None,
 ) -> list[InventoryMovement]:
     if lot_id is not None:
         return await repository.list_by_lot(lot_id)
@@ -73,6 +76,10 @@ async def create_inventory_movement(
         LotRepository,
         Depends(get_lot_repository),
     ],
+    movement_repository: Annotated[
+        InventoryMovementRepository,
+        Depends(get_inventory_movement_repository),
+    ],
     current_user: Annotated[
         User,
         Depends(
@@ -83,6 +90,15 @@ async def create_inventory_movement(
         ),
     ],
 ) -> InventoryMovement:
+    if data.movement_type == MovementType.SALE:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "A movimentação de venda só pode ser gerada "
+                "pelo fluxo de pedidos"
+            ),
+        )
+
     lot = await lot_repository.get_by_id(data.lot_id)
 
     if lot is None:
@@ -94,7 +110,7 @@ async def create_inventory_movement(
     service = InventoryMovementService(session)
 
     try:
-        return await service.register_movement(
+        movement = await service.register_movement(
             lot=lot,
             user_id=current_user.id,
             movement_type=data.movement_type,
@@ -108,3 +124,18 @@ async def create_inventory_movement(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(error),
         ) from error
+
+    enriched_movement = await movement_repository.get_by_id(
+        movement.id,
+    )
+
+    if enriched_movement is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "A movimentação foi criada, mas não foi "
+                "possível recarregá-la"
+            ),
+        )
+
+    return enriched_movement

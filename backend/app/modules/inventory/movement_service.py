@@ -51,11 +51,14 @@ class InventoryMovementService:
             new_balance = quantity
 
         else:
-            raise ValueError("Tipo de movimentação inválido")
+            raise ValueError(
+                "Tipo de movimentação inválido"
+            )
 
         if new_balance < lot.reserved_quantity:
             raise InsufficientStockError(
-                "O saldo não pode ficar abaixo da quantidade reservada"
+                "O saldo não pode ficar abaixo "
+                "da quantidade reservada"
             )
 
         lot.physical_quantity = new_balance
@@ -74,7 +77,12 @@ class InventoryMovementService:
         self.session.add(movement)
 
         if commit:
-            await self.session.commit()
-            await self.session.refresh(movement)
+            try:
+                await self.session.commit()
+                await self.session.refresh(movement)
+            except Exception:
+                await self.session.rollback()
+                lot.physical_quantity = previous_balance
+                raise
 
         return movement

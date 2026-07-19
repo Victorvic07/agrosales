@@ -125,3 +125,35 @@ async def test_sale_cannot_create_negative_stock() -> None:
             quantity=Decimal("30"),
             reason="Baixa por venda",
         )
+
+
+@pytest.mark.asyncio
+async def test_register_movement_without_commit_does_not_commit() -> None:
+    lot = Lot(
+        id=uuid4(),
+        product_variation_id=uuid4(),
+        code="LOTE-001",
+        physical_quantity=Decimal("100"),
+        reserved_quantity=Decimal("0"),
+    )
+
+    session = MagicMock()
+
+    session.commit = AsyncMock(
+        side_effect=Exception("Erro ao salvar movimentação")
+    )
+    session.rollback = AsyncMock()
+    session.refresh = AsyncMock()
+
+    service = InventoryMovementService(session)
+
+    with pytest.raises(Exception, match="Erro ao salvar movimentação"):
+        await service.register_movement(
+            lot=lot,
+            user_id=uuid4(),
+            movement_type=MovementType.ENTRY,
+            quantity=Decimal("50"),
+            reason="Entrada teste",
+        )
+
+    session.rollback.assert_called_once()

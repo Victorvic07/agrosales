@@ -79,3 +79,7 @@ class InventoryMovement(Base):
 
     lot = relationship("Lot")
     user = relationship("User")
+
+    @property
+    def user_name(self) -> str:
+        return self.user.name

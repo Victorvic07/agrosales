@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.modules.inventory.lot_model import Lot
+from app.modules.inventory.movement_model import MovementType
 from app.modules.inventory.reservation_model import (
     ReservationStatus,
     StockReservation,
@@ -216,4 +217,176 @@ async def test_rolls_back_when_stock_balance_is_inconsistent() -> None:
     assert lot.reserved_quantity == Decimal("10")
 
     session.commit.assert_not_awaited()
+    session.rollback.assert_awaited_once()
+
+@pytest.mark.asyncio
+async def test_completion_registers_sale_movement_before_commit() -> None:
+    user_id = uuid4()
+
+    order = Order(
+        id=uuid4(),
+        customer_id=uuid4(),
+        seller_id=uuid4(),
+        status=OrderStatus.CONFIRMED,
+        subtotal=Decimal("100"),
+        discount_total=Decimal("0"),
+        total_amount=Decimal("100"),
+    )
+
+    lot = Lot(
+        id=uuid4(),
+        product_variation_id=uuid4(),
+        code="LOTE-001",
+        physical_quantity=Decimal("100"),
+        reserved_quantity=Decimal("20"),
+    )
+
+    reservation = StockReservation(
+        id=uuid4(),
+        lot_id=lot.id,
+        quantity=Decimal("10"),
+        status=ReservationStatus.ACTIVE,
+    )
+    reservation.lot = lot
+
+    session = MagicMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    session.refresh = AsyncMock()
+
+    order_repository = MagicMock()
+    order_repository.get_by_id_for_update = AsyncMock(
+        return_value=order,
+    )
+
+    reservation_repository = MagicMock()
+    reservation_repository.list_active_by_order = AsyncMock(
+        return_value=[reservation],
+    )
+
+    async def register_movement(**kwargs) -> None:
+        movement_lot = kwargs["lot"]
+
+        assert movement_lot.reserved_quantity == Decimal("10")
+
+        movement_lot.physical_quantity -= kwargs["quantity"]
+
+    movement_service = MagicMock()
+    movement_service.register_movement = AsyncMock(
+        side_effect=register_movement,
+    )
+
+    service = OrderCompletionService(
+        session=session,
+        order_repository=order_repository,
+        reservation_repository=reservation_repository,
+        movement_service=movement_service,
+    )
+
+    result = await service.complete(
+        order.id,
+        changed_by_user_id=user_id,
+    )
+
+    assert result.status is OrderStatus.COMPLETED
+    assert reservation.status is ReservationStatus.CONSUMED
+    assert lot.physical_quantity == Decimal("90")
+    assert lot.reserved_quantity == Decimal("10")
+
+    movement_service.register_movement.assert_awaited_once_with(
+        lot=lot,
+        user_id=user_id,
+        movement_type=MovementType.SALE,
+        quantity=reservation.quantity,
+        reason=f"Baixa do pedido {order.id}",
+        notes=None,
+        commit=False,
+    )
+
+    session.commit.assert_awaited_once()
+    session.rollback.assert_not_awaited()
+
+@pytest.mark.asyncio
+async def test_completion_rolls_back_when_sale_movement_fails() -> None:
+    user_id = uuid4()
+
+    order = Order(
+        id=uuid4(),
+        customer_id=uuid4(),
+        seller_id=uuid4(),
+        status=OrderStatus.CONFIRMED,
+        subtotal=Decimal("100"),
+        discount_total=Decimal("0"),
+        total_amount=Decimal("100"),
+    )
+
+    lot = Lot(
+        id=uuid4(),
+        product_variation_id=uuid4(),
+        code="LOTE-001",
+        physical_quantity=Decimal("100"),
+        reserved_quantity=Decimal("20"),
+    )
+
+    reservation = StockReservation(
+        id=uuid4(),
+        lot_id=lot.id,
+        quantity=Decimal("10"),
+        status=ReservationStatus.ACTIVE,
+    )
+    reservation.lot = lot
+
+    session = MagicMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    session.refresh = AsyncMock()
+
+    order_repository = MagicMock()
+    order_repository.get_by_id_for_update = AsyncMock(
+        return_value=order,
+    )
+
+    reservation_repository = MagicMock()
+    reservation_repository.list_active_by_order = AsyncMock(
+        return_value=[reservation],
+    )
+
+    movement_service = MagicMock()
+    movement_service.register_movement = AsyncMock(
+        side_effect=RuntimeError(
+            "Falha ao registrar movimentação",
+        ),
+    )
+
+    service = OrderCompletionService(
+        session=session,
+        order_repository=order_repository,
+        reservation_repository=reservation_repository,
+        movement_service=movement_service,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="Falha ao registrar movimentação",
+    ):
+        await service.complete(
+            order.id,
+            changed_by_user_id=user_id,
+        )
+
+    movement_service.register_movement.assert_awaited_once_with(
+        lot=lot,
+        user_id=user_id,
+        movement_type=MovementType.SALE,
+        quantity=reservation.quantity,
+        reason=f"Baixa do pedido {order.id}",
+        notes=None,
+        commit=False,
+    )
+
+    assert order.status is OrderStatus.CONFIRMED
+    assert reservation.status is ReservationStatus.ACTIVE
+
+    session.commit.assert_not_awaited()
+    session.refresh.assert_not_awaited()
     session.rollback.assert_awaited_once()

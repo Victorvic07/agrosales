@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -12,6 +12,10 @@ from app.core.enums import UserRole
 from app.database.session import get_db_session
 from app.main import app
 from app.modules.inventory.lot_model import Lot
+from app.modules.inventory.movement_model import (
+    InventoryMovement,
+    MovementType,
+)
 from app.modules.inventory.reservation_model import (
     ReservationStatus,
     StockReservation,
@@ -219,7 +223,8 @@ def test_returns_422_when_stock_balance_is_inconsistent(client) -> None:
 
 def test_completes_confirmed_order_successfully(client) -> None:
     order_id = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
+    current_user = make_user(UserRole.PRODUTOR)
 
     order = Order(
         id=order_id,
@@ -266,7 +271,7 @@ def test_completes_confirmed_order_successfully(client) -> None:
         yield session
 
     app.dependency_overrides[get_current_user] = (
-        lambda: make_user(UserRole.PRODUTOR)
+        lambda: current_user
     )
     app.dependency_overrides[get_order_repository] = (
         lambda: order_repository
@@ -295,4 +300,21 @@ def test_completes_confirmed_order_successfully(client) -> None:
 
     session.commit.assert_awaited_once()
     session.refresh.assert_awaited_once_with(order)
-    session.rollback.assert_not_awaited()
+
+    movements = [
+        call.args[0]
+        for call in session.add.call_args_list
+        if isinstance(call.args[0], InventoryMovement)
+    ]
+
+    assert len(movements) == 1
+
+    movement = movements[0]
+
+    assert movement.lot_id == lot.id
+    assert movement.user_id == current_user.id
+    assert movement.movement_type is MovementType.SALE
+    assert movement.quantity == reservation.quantity
+    assert movement.previous_balance == Decimal("100")
+    assert movement.new_balance == Decimal("90")
+    assert movement.reason == f"Baixa do pedido {order.id}"

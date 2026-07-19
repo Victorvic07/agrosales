@@ -1,8 +1,10 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.inventory.movement_model import MovementType
+from app.modules.inventory.movement_service import InventoryMovementService
 from app.modules.inventory.reservation_model import (
     ReservationStatus,
 )
@@ -38,11 +40,16 @@ class OrderCompletionService:
         order_repository: OrderRepository,
         reservation_repository: ReservationRepository,
         history_repository: OrderStatusHistoryRepository | None = None,
+        movement_service: InventoryMovementService | None = None,
     ) -> None:
         self.session = session
         self.order_repository = order_repository
         self.reservation_repository = reservation_repository
         self.history_repository = history_repository
+        self.movement_service = (
+            movement_service
+            or InventoryMovementService(session)
+        )
 
     async def complete(
         self,
@@ -82,15 +89,27 @@ class OrderCompletionService:
                         "Saldo de estoque do lote está inconsistente"
                     )
 
-                lot.physical_quantity -= reservation.quantity
                 lot.reserved_quantity -= reservation.quantity
+
+                await self.movement_service.register_movement(
+                    lot=lot,
+                    user_id=(
+                        changed_by_user_id
+                        or order.seller_id
+                    ),
+                    movement_type=MovementType.SALE,
+                    quantity=reservation.quantity,
+                    reason=f"Baixa do pedido {order.id}",
+                    notes=None,
+                    commit=False,
+                )
 
                 reservation.status = ReservationStatus.CONSUMED
 
             previous_status = order.status
 
             order.status = OrderStatus.COMPLETED
-            order.completed_at = datetime.now(timezone.utc)
+            order.completed_at = datetime.now(UTC)
 
             if (
                 self.history_repository is not None

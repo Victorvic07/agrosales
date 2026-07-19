@@ -111,10 +111,10 @@ export const routes: Routes = [
         title: 'Lotes',
         loadComponent: () =>
           import(
-            './features/placeholder/feature-placeholder.component'
+            './features/lots/lots.component'
           ).then(
             (module) =>
-              module.FeaturePlaceholderComponent,
+              module.LotsComponent,
           ),
       },
       {

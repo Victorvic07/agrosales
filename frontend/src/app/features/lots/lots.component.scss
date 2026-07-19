@@ -1,0 +1,96 @@
+:host {
+  display: block;
+}
+
+.lots-page {
+  display: grid;
+  gap: 24px;
+}
+
+.lots-header h1 {
+  margin: 4px 0;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.subtitle {
+  margin: 0;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(
+      auto-fit,
+      minmax(180px, 1fr)
+    );
+  gap: 16px;
+}
+
+.summary-card {
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+  border: 1px solid
+    rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.summary-card strong {
+  font-size: 1.8rem;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns:
+    repeat(
+      auto-fit,
+      minmax(180px, 1fr)
+    );
+  gap: 16px;
+}
+
+.filters label {
+  display: grid;
+  gap: 6px;
+}
+
+.filters input,
+.filters select {
+  min-height: 42px;
+  padding: 8px 12px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 12px;
+  border-bottom: 1px solid
+    rgba(0, 0, 0, 0.1);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.empty-state,
+.state-message {
+  padding: 24px;
+  text-align: center;
+}
+
+.state-message--error {
+  color: #b42318;
+}

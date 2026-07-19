@@ -1,0 +1,245 @@
+<section class="lots-page">
+  <header class="lots-header">
+    <div>
+      <p class="eyebrow">
+        Estoque
+      </p>
+
+      <h1>Lotes</h1>
+
+      <p class="subtitle">
+        Consulte saldos, reservas e vencimentos dos lotes.
+      </p>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <div
+      class="state-message"
+      data-testid="lots-loading"
+    >
+      Carregando lotes...
+    </div>
+  } @else if (errorMessage()) {
+    <div
+      class="state-message state-message--error"
+      data-testid="lots-error"
+    >
+      {{ errorMessage() }}
+    </div>
+  } @else {
+    <div class="summary-grid">
+      <article class="summary-card">
+        <span>Lotes ativos</span>
+        <strong>
+          {{ activeLotsCount() }}
+        </strong>
+      </article>
+
+      <article class="summary-card">
+        <span>Saldo disponível</span>
+        <strong>
+          {{ availableTotal() }}
+        </strong>
+      </article>
+
+      <article class="summary-card">
+        <span>Próximos do vencimento</span>
+        <strong>
+          {{ expiringSoonCount() }}
+        </strong>
+      </article>
+
+      <article class="summary-card">
+        <span>Vencidos</span>
+        <strong>
+          {{ expiredCount() }}
+        </strong>
+      </article>
+    </div>
+
+    <div class="filters">
+      <label>
+        <span>Buscar</span>
+
+        <input
+          type="search"
+          placeholder="Código, produto ou variação"
+          [value]="searchTerm()"
+          (input)="updateSearchTerm($event)"
+        />
+      </label>
+
+      <label>
+        <span>Produto</span>
+
+        <select
+          [value]="productFilter()"
+          (change)="updateProductFilter($event)"
+        >
+          <option value="all">
+            Todos
+          </option>
+
+          @for (
+            product of products();
+            track product.id
+          ) {
+            <option [value]="product.id">
+              {{ product.name }}
+            </option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span>Status</span>
+
+        <select
+          [value]="statusFilter()"
+          (change)="updateStatusFilter($event)"
+        >
+          <option value="all">
+            Todos
+          </option>
+
+          <option value="ACTIVE">
+            Ativos
+          </option>
+
+          <option value="INACTIVE">
+            Inativos
+          </option>
+        </select>
+      </label>
+
+      <label>
+        <span>Vencimento</span>
+
+        <select
+          [value]="expirationFilter()"
+          (change)="updateExpirationFilter($event)"
+        >
+          <option value="all">
+            Todos
+          </option>
+
+          <option value="REGULAR">
+            Regular
+          </option>
+
+          <option value="EXPIRING_SOON">
+            Próximo do vencimento
+          </option>
+
+          <option value="EXPIRES_TODAY">
+            Vence hoje
+          </option>
+
+          <option value="EXPIRED">
+            Vencido
+          </option>
+        </select>
+      </label>
+
+      <label>
+        <span>Disponibilidade</span>
+
+        <select
+          [value]="availabilityFilter()"
+          (change)="updateAvailabilityFilter($event)"
+        >
+          <option value="all">
+            Todos
+          </option>
+
+          <option value="AVAILABLE">
+            Com saldo
+          </option>
+
+          <option value="UNAVAILABLE">
+            Sem saldo
+          </option>
+        </select>
+      </label>
+    </div>
+
+    <div
+      class="table-wrapper"
+      data-testid="lots-content"
+    >
+      <table>
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Produto</th>
+            <th>Variação</th>
+            <th>Produção</th>
+            <th>Validade</th>
+            <th>Físico</th>
+            <th>Reservado</th>
+            <th>Disponível</th>
+            <th>Vencimento</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          @for (
+            lot of filteredLots();
+            track lot.id
+          ) {
+            <tr>
+              <td>{{ lot.code }}</td>
+
+              <td>
+                {{ getProductName(lot) }}
+              </td>
+
+              <td>
+                {{ getVariationName(lot) }}
+              </td>
+
+              <td>
+                {{ lot.production_date }}
+              </td>
+
+              <td>
+                {{ lot.expiration_date }}
+              </td>
+
+              <td>
+                {{ lot.physical_quantity }}
+              </td>
+
+              <td>
+                {{ lot.reserved_quantity }}
+              </td>
+
+              <td>
+                {{ lot.available_quantity }}
+              </td>
+
+              <td>
+                {{ lot.expiration_state }}
+              </td>
+
+              <td>
+                {{ lot.status }}
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td
+                class="empty-state"
+                colspan="10"
+              >
+                Nenhum lote encontrado.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

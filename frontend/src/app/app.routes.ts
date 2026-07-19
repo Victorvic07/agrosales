@@ -89,15 +89,15 @@ export const routes: Routes = [
           roleGuard,
         ],
         data: {
-          roles: producerRoles,
+          roles: allRoles,
         },
         title: 'Variações',
         loadComponent: () =>
           import(
-            './features/placeholder/feature-placeholder.component'
+            './features/product-variations/product-variations.component'
           ).then(
             (module) =>
-              module.FeaturePlaceholderComponent,
+              module.ProductVariationsComponent,
           ),
       },
       {

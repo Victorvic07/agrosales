@@ -1,0 +1,419 @@
+<section class="variations-page">
+  <header class="variations-header">
+    <div>
+      <p class="eyebrow">
+        Produtos
+      </p>
+
+      <h1>
+        Variações de produtos
+      </h1>
+
+      <p class="subtitle">
+        Consulte e mantenha as variações cadastradas.
+      </p>
+    </div>
+
+    @if (canManage()) {
+      <button
+        type="button"
+        class="primary-button"
+        (click)="openCreateForm()"
+      >
+        Nova variação
+      </button>
+    }
+  </header>
+
+  @if (statusError()) {
+    <div class="state-message state-message--error">
+      {{ statusError() }}
+    </div>
+  }
+
+  @if (loading()) {
+    <div
+      class="state-message"
+      data-testid="variations-loading"
+    >
+      Carregando variações...
+    </div>
+  } @else if (errorMessage()) {
+    <div
+      class="state-message state-message--error"
+      data-testid="variations-error"
+    >
+      {{ errorMessage() }}
+    </div>
+  } @else {
+    <div class="filters">
+      <label>
+        <span>Buscar</span>
+
+        <input
+          type="search"
+          placeholder="Produto, código ou classificação"
+          [value]="searchTerm()"
+          (input)="updateSearchTerm($event)"
+        />
+      </label>
+
+      <label>
+        <span>Status</span>
+
+        <select
+          [value]="statusFilter()"
+          (change)="updateStatusFilter($event)"
+        >
+          <option value="all">
+            Todos
+          </option>
+
+          <option value="active">
+            Ativos
+          </option>
+
+          <option value="inactive">
+            Inativos
+          </option>
+        </select>
+      </label>
+    </div>
+
+    <div
+      class="table-wrapper"
+      data-testid="variations-content"
+    >
+      <table>
+        <thead>
+          <tr>
+            <th>Produto</th>
+            <th>Código</th>
+            <th>Classificação</th>
+            <th>Embalagem</th>
+            <th>Unidade</th>
+            <th>Preço padrão</th>
+            <th>Preço mínimo</th>
+            <th>Status</th>
+
+            @if (canManage()) {
+              <th>Ações</th>
+            }
+          </tr>
+        </thead>
+
+        <tbody>
+          @for (
+            variation of filteredVariations();
+            track variation.id
+          ) {
+            <tr>
+              <td>
+                {{
+                  getProductName(
+                    variation.product_id
+                  )
+                }}
+              </td>
+
+              <td>
+                {{ variation.internal_code }}
+              </td>
+
+              <td>
+                {{
+                  variation.classification ||
+                    'Não informada'
+                }}
+              </td>
+
+              <td>
+                {{ variation.package_type }}
+              </td>
+
+              <td>
+                {{ variation.unit_of_measure }}
+              </td>
+
+              <td>
+                {{
+                  +variation.standard_price
+                    | currency:
+                      'BRL':
+                      'symbol':
+                      '1.2-2':
+                      'pt-BR'
+                }}
+              </td>
+
+              <td>
+                {{
+                  +variation.minimum_price
+                    | currency:
+                      'BRL':
+                      'symbol':
+                      '1.2-2':
+                      'pt-BR'
+                }}
+              </td>
+
+              <td>
+                <span
+                  class="status-badge"
+                  [class.status-badge--inactive]="
+                    !variation.is_active
+                  "
+                >
+                  {{
+                    variation.is_active
+                      ? 'Ativo'
+                      : 'Inativo'
+                  }}
+                </span>
+              </td>
+
+              @if (canManage()) {
+                <td>
+                  <div class="row-actions">
+                    <button
+                      type="button"
+                      class="link-button"
+                      (click)="openEditForm(variation)"
+                    >
+                      Editar
+                    </button>
+
+                    <button
+                      type="button"
+                      class="link-button"
+                      (click)="changeStatus(variation)"
+                    >
+                      {{
+                        variation.is_active
+                          ? 'Inativar'
+                          : 'Ativar'
+                      }}
+                    </button>
+                  </div>
+                </td>
+              }
+            </tr>
+          } @empty {
+            <tr>
+              <td
+                class="empty-state"
+                [attr.colspan]="
+                  canManage() ? 9 : 8
+                "
+              >
+                Nenhuma variação encontrada.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  @if (formOpen() && canManage()) {
+    <div
+      class="drawer-backdrop"
+      (click)="closeForm()"
+    ></div>
+
+    <aside
+      class="form-drawer"
+      aria-label="Formulário de variação"
+    >
+      <header class="form-header">
+        <div>
+          <p class="eyebrow">
+            {{
+              editingVariation()
+                ? 'Edição'
+                : 'Cadastro'
+            }}
+          </p>
+
+          <h2>
+            {{
+              editingVariation()
+                ? 'Editar variação'
+                : 'Nova variação'
+            }}
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          class="close-button"
+          aria-label="Fechar formulário"
+          (click)="closeForm()"
+        >
+          ×
+        </button>
+      </header>
+
+      <form
+        [formGroup]="variationForm"
+        (ngSubmit)="submitForm()"
+      >
+        <div class="form-grid">
+          <label>
+            <span>Produto *</span>
+
+            <select formControlName="product_id">
+              <option value="">
+                Selecione
+              </option>
+
+              @for (
+                product of products();
+                track product.id
+              ) {
+                <option [value]="product.id">
+                  {{ product.name }}
+                </option>
+              }
+            </select>
+          </label>
+
+          <label>
+            <span>Código interno *</span>
+
+            <input
+              type="text"
+              formControlName="internal_code"
+            />
+          </label>
+
+          <label>
+            <span>Classificação</span>
+
+            <input
+              type="text"
+              formControlName="classification"
+            />
+          </label>
+
+          <label>
+            <span>Embalagem *</span>
+
+            <input
+              type="text"
+              formControlName="package_type"
+            />
+          </label>
+
+          <label>
+            <span>Unidade *</span>
+
+            <input
+              type="text"
+              formControlName="unit_of_measure"
+            />
+          </label>
+
+          <label>
+            <span>Peso ou volume</span>
+
+            <input
+              type="number"
+              min="0"
+              formControlName="weight_or_volume"
+            />
+          </label>
+
+          <label>
+            <span>Preço padrão *</span>
+
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              formControlName="standard_price"
+            />
+          </label>
+
+          <label>
+            <span>Preço mínimo *</span>
+
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              formControlName="minimum_price"
+            />
+          </label>
+
+          <label>
+            <span>Estoque mínimo *</span>
+
+            <input
+              type="number"
+              min="0"
+              formControlName="minimum_stock"
+            />
+          </label>
+
+          <label>
+            <span>Comissão (%) *</span>
+
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              formControlName="commission_percentage"
+            />
+          </label>
+
+          <label>
+            <span>Código de barras</span>
+
+            <input
+              type="text"
+              formControlName="barcode"
+            />
+          </label>
+
+          <label>
+            <span>QR Code</span>
+
+            <input
+              type="text"
+              formControlName="qr_code"
+            />
+          </label>
+        </div>
+
+        @if (formError()) {
+          <p class="form-error">
+            {{ formError() }}
+          </p>
+        }
+
+        <footer class="form-actions">
+          <button
+            type="button"
+            class="secondary-button"
+            (click)="closeForm()"
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="submit"
+            class="primary-button"
+            [disabled]="saving()"
+          >
+            {{
+              saving()
+                ? 'Salvando...'
+                : 'Salvar'
+            }}
+          </button>
+        </footer>
+      </form>
+    </aside>
+  }
+</section>

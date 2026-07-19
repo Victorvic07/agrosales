@@ -8,10 +8,28 @@
       <h1>Lotes</h1>
 
       <p class="subtitle">
-        Consulte saldos, reservas e vencimentos dos lotes.
+        Consulte saldos, reservas, vencimentos e movimentações dos lotes.
       </p>
     </div>
+
+    <button
+      type="button"
+      class="button button--primary"
+      data-testid="new-lot-button"
+      (click)="openCreateForm()"
+    >
+      Novo lote
+    </button>
   </header>
+
+  @if (statusError()) {
+    <div
+      class="feedback feedback--error"
+      role="alert"
+    >
+      {{ statusError() }}
+    </div>
+  }
 
   @if (loading()) {
     <div
@@ -24,6 +42,7 @@
     <div
       class="state-message state-message--error"
       data-testid="lots-error"
+      role="alert"
     >
       {{ errorMessage() }}
     </div>
@@ -31,6 +50,7 @@
     <div class="summary-grid">
       <article class="summary-card">
         <span>Lotes ativos</span>
+
         <strong>
           {{ activeLotsCount() }}
         </strong>
@@ -38,6 +58,7 @@
 
       <article class="summary-card">
         <span>Saldo disponível</span>
+
         <strong>
           {{ availableTotal() }}
         </strong>
@@ -45,6 +66,7 @@
 
       <article class="summary-card">
         <span>Próximos do vencimento</span>
+
         <strong>
           {{ expiringSoonCount() }}
         </strong>
@@ -52,6 +74,7 @@
 
       <article class="summary-card">
         <span>Vencidos</span>
+
         <strong>
           {{ expiredCount() }}
         </strong>
@@ -181,6 +204,9 @@
             <th>Disponível</th>
             <th>Vencimento</th>
             <th>Status</th>
+            <th class="actions-column">
+              Ações
+            </th>
           </tr>
         </thead>
 
@@ -190,7 +216,9 @@
             track lot.id
           ) {
             <tr>
-              <td>{{ lot.code }}</td>
+              <td>
+                <strong>{{ lot.code }}</strong>
+              </td>
 
               <td>
                 {{ getProductName(lot) }}
@@ -221,18 +249,99 @@
               </td>
 
               <td>
-                {{ lot.expiration_state }}
+                <span
+                  class="badge"
+                  [class.badge--danger]="lot.expiration_state === 'EXPIRED'"
+                  [class.badge--warning]="
+                    lot.expiration_state === 'EXPIRING_SOON' ||
+                    lot.expiration_state === 'EXPIRES_TODAY'
+                  "
+                  [class.badge--success]="lot.expiration_state === 'REGULAR'"
+                >
+                  @switch (lot.expiration_state) {
+                    @case ('EXPIRED') {
+                      Vencido
+                    }
+
+                    @case ('EXPIRES_TODAY') {
+                      Vence hoje
+                    }
+
+                    @case ('EXPIRING_SOON') {
+                      Próximo do vencimento
+                    }
+
+                    @default {
+                      Regular
+                    }
+                  }
+                </span>
               </td>
 
               <td>
-                {{ lot.status }}
+                <span
+                  class="badge"
+                  [class.badge--success]="lot.status === 'ACTIVE'"
+                  [class.badge--neutral]="lot.status === 'INACTIVE'"
+                >
+                  {{
+                    lot.status === 'ACTIVE'
+                      ? 'Ativo'
+                      : 'Inativo'
+                  }}
+                </span>
+              </td>
+
+              <td>
+                <div class="row-actions">
+                  <button
+                    type="button"
+                    class="action-button"
+                    [attr.data-testid]="'details-' + lot.id"
+                    (click)="openDetails(lot)"
+                  >
+                    Detalhes
+                  </button>
+
+                  <button
+                    type="button"
+                    class="action-button"
+                    [attr.data-testid]="'edit-' + lot.id"
+                    (click)="openEditForm(lot)"
+                  >
+                    Editar
+                  </button>
+
+                  <button
+                    type="button"
+                    class="action-button"
+                    [attr.data-testid]="'movement-' + lot.id"
+                    [disabled]="lot.status === 'INACTIVE'"
+                    (click)="openMovementForm(lot)"
+                  >
+                    Movimentar
+                  </button>
+
+                  <button
+                    type="button"
+                    class="action-button action-button--status"
+                    [attr.data-testid]="'status-' + lot.id"
+                    (click)="changeStatus(lot)"
+                  >
+                    {{
+                      lot.status === 'ACTIVE'
+                        ? 'Inativar'
+                        : 'Ativar'
+                    }}
+                  </button>
+                </div>
               </td>
             </tr>
           } @empty {
             <tr>
               <td
                 class="empty-state"
-                colspan="10"
+                colspan="11"
               >
                 Nenhum lote encontrado.
               </td>
@@ -240,6 +349,533 @@
           }
         </tbody>
       </table>
+    </div>
+  }
+
+  @if (formOpen()) {
+    <div class="drawer-layer">
+      <button
+        type="button"
+        class="drawer-backdrop"
+        aria-label="Fechar formulário de lote"
+        (click)="closeForm()"
+      ></button>
+
+      <aside
+        class="drawer"
+        data-testid="lot-form-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="lot-form-title"
+      >
+        <header class="drawer-header">
+          <div>
+            <p class="eyebrow">
+              Estoque
+            </p>
+
+            <h2 id="lot-form-title">
+              {{
+                editingLot()
+                  ? 'Editar lote'
+                  : 'Novo lote'
+              }}
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            class="icon-button"
+            aria-label="Fechar"
+            (click)="closeForm()"
+          >
+            ×
+          </button>
+        </header>
+
+        <form
+          class="drawer-content form-grid"
+          [formGroup]="lotForm"
+          (ngSubmit)="submitLotForm()"
+        >
+          <label>
+            <span>Produto *</span>
+
+            <select
+              formControlName="product_id"
+            >
+              <option value="">
+                Selecione
+              </option>
+
+              @for (
+                product of products();
+                track product.id
+              ) {
+                <option [value]="product.id">
+                  {{ product.name }}
+                </option>
+              }
+            </select>
+          </label>
+
+          <label>
+            <span>Variação *</span>
+
+            <select
+              formControlName="product_variation_id"
+            >
+              <option value="">
+                Selecione
+              </option>
+
+              @for (
+                variation of availableVariations();
+                track variation.id
+              ) {
+                <option [value]="variation.id">
+                  {{ variation.internal_code }}
+                  — {{ variation.classification }}
+                </option>
+              }
+            </select>
+          </label>
+
+          <label class="field--full">
+            <span>Código do lote *</span>
+
+            <input
+              type="text"
+              formControlName="code"
+              autocomplete="off"
+            />
+          </label>
+
+          <label>
+            <span>Data de produção *</span>
+
+            <input
+              type="date"
+              formControlName="production_date"
+            />
+          </label>
+
+          <label>
+            <span>Data de validade *</span>
+
+            <input
+              type="date"
+              formControlName="expiration_date"
+            />
+          </label>
+
+          @if (!editingLot()) {
+            <label>
+              <span>Quantidade inicial *</span>
+
+              <input
+                type="number"
+                min="0"
+                step="0.001"
+                formControlName="initial_quantity"
+              />
+            </label>
+
+            <label>
+              <span>Motivo da entrada inicial</span>
+
+              <input
+                type="text"
+                formControlName="initial_entry_reason"
+                placeholder="Obrigatório quando houver saldo inicial"
+              />
+            </label>
+
+            <label class="field--full">
+              <span>Observações</span>
+
+              <textarea
+                rows="4"
+                formControlName="notes"
+              ></textarea>
+            </label>
+          }
+
+          @if (formError()) {
+            <div
+              class="feedback feedback--error field--full"
+              role="alert"
+            >
+              {{ formError() }}
+            </div>
+          }
+
+          <footer class="form-actions field--full">
+            <button
+              type="button"
+              class="button button--secondary"
+              [disabled]="saving()"
+              (click)="closeForm()"
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="submit"
+              class="button button--primary"
+              [disabled]="saving()"
+            >
+              {{
+                saving()
+                  ? 'Salvando...'
+                  : editingLot()
+                    ? 'Salvar alterações'
+                    : 'Cadastrar lote'
+              }}
+            </button>
+          </footer>
+        </form>
+      </aside>
+    </div>
+  }
+
+  @if (detailsOpen()) {
+    <div class="drawer-layer">
+      <button
+        type="button"
+        class="drawer-backdrop"
+        aria-label="Fechar detalhes do lote"
+        (click)="closeDetails()"
+      ></button>
+
+      <aside
+        class="drawer drawer--wide"
+        data-testid="lot-details-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="lot-details-title"
+      >
+        <header class="drawer-header">
+          <div>
+            <p class="eyebrow">
+              Detalhes do lote
+            </p>
+
+            <h2 id="lot-details-title">
+              {{ selectedLot()?.code ?? 'Lote' }}
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            class="icon-button"
+            aria-label="Fechar"
+            (click)="closeDetails()"
+          >
+            ×
+          </button>
+        </header>
+
+        <div class="drawer-content">
+          @if (detailsLoading()) {
+            <div class="state-message">
+              Carregando detalhes...
+            </div>
+          } @else if (detailsError()) {
+            <div
+              class="feedback feedback--error"
+              role="alert"
+            >
+              {{ detailsError() }}
+            </div>
+          } @else if (selectedLot(); as lot) {
+            <section class="details-section">
+              <div class="details-heading">
+                <h3>Informações gerais</h3>
+
+                <button
+                  type="button"
+                  class="button button--primary button--small"
+                  [disabled]="lot.status === 'INACTIVE'"
+                  (click)="openMovementForm(lot)"
+                >
+                  Nova movimentação
+                </button>
+              </div>
+
+              <dl class="details-grid">
+                <div>
+                  <dt>Produto</dt>
+                  <dd>{{ getProductName(lot) }}</dd>
+                </div>
+
+                <div>
+                  <dt>Variação</dt>
+                  <dd>{{ getVariationName(lot) }}</dd>
+                </div>
+
+                <div>
+                  <dt>Produção</dt>
+                  <dd>{{ lot.production_date }}</dd>
+                </div>
+
+                <div>
+                  <dt>Validade</dt>
+                  <dd>{{ lot.expiration_date }}</dd>
+                </div>
+
+                <div>
+                  <dt>Saldo físico</dt>
+                  <dd>{{ lot.physical_quantity }}</dd>
+                </div>
+
+                <div>
+                  <dt>Reservado</dt>
+                  <dd>{{ lot.reserved_quantity }}</dd>
+                </div>
+
+                <div>
+                  <dt>Disponível</dt>
+                  <dd>{{ lot.available_quantity }}</dd>
+                </div>
+
+                <div>
+                  <dt>Status</dt>
+                  <dd>
+                    {{
+                      lot.status === 'ACTIVE'
+                        ? 'Ativo'
+                        : 'Inativo'
+                    }}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="details-section">
+              <h3>Histórico de movimentações</h3>
+
+              <div class="movement-list">
+                @for (
+                  movement of movements();
+                  track movement.id
+                ) {
+                  <article class="movement-card">
+                    <header>
+                      <div>
+                        <strong>
+                          @switch (movement.movement_type) {
+                            @case ('ENTRY') {
+                              Entrada
+                            }
+
+                            @case ('SALE') {
+                              Venda
+                            }
+
+                            @case ('LOSS') {
+                              Perda
+                            }
+
+                            @case ('RETURN') {
+                              Devolução
+                            }
+
+                            @default {
+                              Ajuste
+                            }
+                          }
+                        </strong>
+
+                        <span>
+                          {{ movement.created_at }}
+                        </span>
+                      </div>
+
+                      <span class="movement-quantity">
+                        {{ movement.quantity }}
+                      </span>
+                    </header>
+
+                    <dl class="movement-balances">
+                      <div>
+                        <dt>Saldo anterior</dt>
+                        <dd>
+                          {{ movement.previous_balance }}
+                        </dd>
+                      </div>
+
+                      <div>
+                        <dt>Novo saldo</dt>
+                        <dd>
+                          {{ movement.new_balance }}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    <p>
+                      <strong>Motivo:</strong>
+                      {{ movement.reason }}
+                    </p>
+
+                    @if (movement.notes) {
+                      <p>
+                        <strong>Observações:</strong>
+                        {{ movement.notes }}
+                      </p>
+                    }
+
+                    <small>
+                      Registrado por
+                      {{ movement.user_name }}
+                    </small>
+                  </article>
+                } @empty {
+                  <div class="empty-panel">
+                    Nenhuma movimentação registrada.
+                  </div>
+                }
+              </div>
+            </section>
+          }
+        </div>
+      </aside>
+    </div>
+  }
+
+  @if (movementFormOpen()) {
+    <div class="drawer-layer drawer-layer--top">
+      <button
+        type="button"
+        class="drawer-backdrop"
+        aria-label="Fechar formulário de movimentação"
+        (click)="closeMovementForm()"
+      ></button>
+
+      <aside
+        class="drawer"
+        data-testid="movement-form-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="movement-form-title"
+      >
+        <header class="drawer-header">
+          <div>
+            <p class="eyebrow">
+              Movimentação manual
+            </p>
+
+            <h2 id="movement-form-title">
+              {{ movementLot()?.code ?? 'Lote' }}
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            class="icon-button"
+            aria-label="Fechar"
+            (click)="closeMovementForm()"
+          >
+            ×
+          </button>
+        </header>
+
+        <form
+          class="drawer-content form-grid"
+          [formGroup]="movementForm"
+          (ngSubmit)="submitMovement()"
+        >
+          <label class="field--full">
+            <span>Tipo de movimentação *</span>
+
+            <select
+              formControlName="movement_type"
+            >
+              <option value="ENTRY">
+                Entrada
+              </option>
+
+              <option value="LOSS">
+                Perda
+              </option>
+
+              <option value="RETURN">
+                Devolução
+              </option>
+
+              <option value="ADJUSTMENT">
+                Ajuste
+              </option>
+            </select>
+          </label>
+
+          <label class="field--full">
+            <span>Quantidade *</span>
+
+            <input
+              type="number"
+              min="0"
+              step="0.001"
+              formControlName="quantity"
+            />
+
+            <small>
+              Quantidade zero é aceita somente para ajuste.
+            </small>
+          </label>
+
+          <label class="field--full">
+            <span>Motivo *</span>
+
+            <input
+              type="text"
+              formControlName="reason"
+              autocomplete="off"
+            />
+          </label>
+
+          <label class="field--full">
+            <span>Observações</span>
+
+            <textarea
+              rows="4"
+              formControlName="notes"
+            ></textarea>
+          </label>
+
+          @if (movementError()) {
+            <div
+              class="feedback feedback--error field--full"
+              role="alert"
+            >
+              {{ movementError() }}
+            </div>
+          }
+
+          <footer class="form-actions field--full">
+            <button
+              type="button"
+              class="button button--secondary"
+              [disabled]="movementSaving()"
+              (click)="closeMovementForm()"
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="submit"
+              class="button button--primary"
+              [disabled]="movementSaving()"
+            >
+              {{
+                movementSaving()
+                  ? 'Registrando...'
+                  : 'Registrar movimentação'
+              }}
+            </button>
+          </footer>
+        </form>
+      </aside>
     </div>
   }
 </section>

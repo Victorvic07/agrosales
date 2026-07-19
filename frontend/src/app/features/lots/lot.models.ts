@@ -67,6 +67,7 @@ export interface InventoryMovement {
   created_at: string;
 }
 
+
 export interface InventoryMovementCreate {
   lot_id: string;
   movement_type: ManualMovementType;

@@ -19,6 +19,61 @@ class ProductVariationCreate(BaseModel):
     qr_code: str | None = Field(default=None, max_length=255)
 
 
+
+class ProductVariationUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+
+    classification: str | None = Field(
+        default=None,
+        max_length=100,
+    )
+    package_type: str | None = Field(
+        default=None,
+        min_length=2,
+        max_length=100,
+    )
+    unit_of_measure: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=30,
+    )
+    weight_or_volume: Decimal | None = Field(
+        default=None,
+        gt=0,
+    )
+    standard_price: Decimal | None = Field(
+        default=None,
+        gt=0,
+    )
+    minimum_price: Decimal | None = Field(
+        default=None,
+        gt=0,
+    )
+    minimum_stock: Decimal | None = Field(
+        default=None,
+        ge=0,
+    )
+    commission_percentage: Decimal | None = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
+    barcode: str | None = Field(
+        default=None,
+        max_length=100,
+    )
+    qr_code: str | None = Field(
+        default=None,
+        max_length=255,
+    )
+
+
+class ProductVariationStatusUpdate(BaseModel):
+    is_active: bool
+
+
 class ProductVariationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -4,7 +4,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.products.variation_model import ProductVariation
-from app.modules.products.variation_schemas import ProductVariationCreate
+from app.modules.products.variation_schemas import (
+    ProductVariationCreate,
+    ProductVariationUpdate,
+)
 
 
 class ProductVariationRepository:
@@ -55,5 +58,43 @@ class ProductVariationRepository:
         self.session.add(variation)
         await self.session.commit()
         await self.session.refresh(variation)
+
+        return variation
+
+
+    async def update(
+        self,
+        variation: ProductVariation,
+        data: ProductVariationUpdate,
+    ) -> ProductVariation:
+        values = data.model_dump(
+            exclude_unset=True,
+        )
+
+        for field, value in values.items():
+            setattr(
+                variation,
+                field,
+                value,
+            )
+
+        await self.session.commit()
+        await self.session.refresh(
+            variation,
+        )
+
+        return variation
+
+    async def update_status(
+        self,
+        variation: ProductVariation,
+        is_active: bool,
+    ) -> ProductVariation:
+        variation.is_active = is_active
+
+        await self.session.commit()
+        await self.session.refresh(
+            variation,
+        )
 
         return variation

@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -15,11 +16,14 @@ from app.modules.products.variation_repository import (
 from app.modules.products.variation_schemas import (
     ProductVariationCreate,
     ProductVariationRead,
+    ProductVariationStatusUpdate,
+    ProductVariationUpdate,
 )
 from app.modules.products.variation_service import (
     InvalidMinimumPriceError,
     ProductNotFoundError,
     ProductVariationAlreadyExistsError,
+    ProductVariationNotFoundError,
     ProductVariationService,
 )
 from app.modules.users.model import User
@@ -98,5 +102,94 @@ async def create_product_variation(
     except InvalidMinimumPriceError as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(error),
+        ) from error
+
+
+@router.patch(
+    "/{variation_id}",
+    response_model=ProductVariationRead,
+)
+async def update_product_variation(
+    variation_id: UUID,
+    data: ProductVariationUpdate,
+    variation_repository: Annotated[
+        ProductVariationRepository,
+        Depends(get_product_variation_repository),
+    ],
+    product_repository: Annotated[
+        ProductRepository,
+        Depends(get_product_repository),
+    ],
+    _: Annotated[
+        User,
+        Depends(
+            require_roles(
+                UserRole.ADMINISTRADOR,
+                UserRole.PRODUTOR,
+            )
+        ),
+    ],
+) -> ProductVariationRead:
+    service = ProductVariationService(
+        variation_repository=variation_repository,
+        product_repository=product_repository,
+    )
+
+    try:
+        return await service.update(
+            variation_id,
+            data,
+        )
+    except ProductVariationNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+    except InvalidMinimumPriceError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(error),
+        ) from error
+
+
+@router.patch(
+    "/{variation_id}/status",
+    response_model=ProductVariationRead,
+)
+async def update_product_variation_status(
+    variation_id: UUID,
+    data: ProductVariationStatusUpdate,
+    variation_repository: Annotated[
+        ProductVariationRepository,
+        Depends(get_product_variation_repository),
+    ],
+    product_repository: Annotated[
+        ProductRepository,
+        Depends(get_product_repository),
+    ],
+    _: Annotated[
+        User,
+        Depends(
+            require_roles(
+                UserRole.ADMINISTRADOR,
+                UserRole.PRODUTOR,
+            )
+        ),
+    ],
+) -> ProductVariationRead:
+    service = ProductVariationService(
+        variation_repository=variation_repository,
+        product_repository=product_repository,
+    )
+
+    try:
+        return await service.update_status(
+            variation_id,
+            data.is_active,
+        )
+    except ProductVariationNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=str(error),
         ) from error

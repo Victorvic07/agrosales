@@ -165,3 +165,247 @@ def test_rejects_minimum_price_above_standard_price(client) -> None:
     assert response.json()["detail"] == (
         "O preço mínimo não pode ser maior que o preço padrão"
     )
+
+
+def test_admin_can_update_product_variation(client) -> None:
+    user = User(
+        id=uuid4(),
+        name="Administrador",
+        email="admin@agrosales.com",
+        password_hash="hash",
+        role=UserRole.ADMINISTRADOR,
+        is_active=True,
+    )
+
+    variation_id = uuid4()
+    product_id = uuid4()
+
+    variation = ProductVariation(
+        id=variation_id,
+        product_id=product_id,
+        internal_code="TOM-ITA-20-A",
+        classification="Categoria A",
+        package_type="Caixa 20 kg",
+        unit_of_measure="CAIXA",
+        weight_or_volume=Decimal("20"),
+        standard_price=Decimal("160"),
+        minimum_price=Decimal("145"),
+        minimum_stock=Decimal("10"),
+        commission_percentage=Decimal("3"),
+        barcode=None,
+        qr_code=None,
+        is_active=True,
+    )
+
+    product_repository = AsyncMock()
+    variation_repository = AsyncMock()
+    variation_repository.get_by_id.return_value = variation
+    variation_repository.update.return_value = ProductVariation(
+        id=variation_id,
+        product_id=product_id,
+        internal_code="TOM-ITA-20-A",
+        classification="Premium",
+        package_type="Caixa 20 kg",
+        unit_of_measure="CAIXA",
+        weight_or_volume=Decimal("20"),
+        standard_price=Decimal("180"),
+        minimum_price=Decimal("165"),
+        minimum_stock=Decimal("10"),
+        commission_percentage=Decimal("3"),
+        barcode=None,
+        qr_code=None,
+        is_active=True,
+    )
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = (
+        lambda: product_repository
+    )
+    app.dependency_overrides[get_product_variation_repository] = (
+        lambda: variation_repository
+    )
+
+    response = client.patch(
+        f"/api/v1/product-variations/{variation_id}",
+        json={
+            "classification": "Premium",
+            "standard_price": "180",
+            "minimum_price": "165",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["classification"] == "Premium"
+    assert Decimal(response.json()["standard_price"]) == Decimal("180")
+
+
+def test_vendor_cannot_update_product_variation(client) -> None:
+    user = User(
+        id=uuid4(),
+        name="Vendedor",
+        email="vendedor@agrosales.com",
+        password_hash="hash",
+        role=UserRole.VENDEDOR,
+        is_active=True,
+    )
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = lambda: AsyncMock()
+    app.dependency_overrides[get_product_variation_repository] = (
+        lambda: AsyncMock()
+    )
+
+    response = client.patch(
+        f"/api/v1/product-variations/{uuid4()}",
+        json={
+            "classification": "Premium",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 403
+
+
+def test_admin_can_inactivate_product_variation(client) -> None:
+    user = User(
+        id=uuid4(),
+        name="Administrador",
+        email="admin@agrosales.com",
+        password_hash="hash",
+        role=UserRole.ADMINISTRADOR,
+        is_active=True,
+    )
+
+    variation_id = uuid4()
+    product_id = uuid4()
+
+    variation = ProductVariation(
+        id=variation_id,
+        product_id=product_id,
+        internal_code="TOM-ITA-20-A",
+        classification="Categoria A",
+        package_type="Caixa 20 kg",
+        unit_of_measure="CAIXA",
+        weight_or_volume=Decimal("20"),
+        standard_price=Decimal("160"),
+        minimum_price=Decimal("145"),
+        minimum_stock=Decimal("10"),
+        commission_percentage=Decimal("3"),
+        barcode=None,
+        qr_code=None,
+        is_active=True,
+    )
+
+    product_repository = AsyncMock()
+    variation_repository = AsyncMock()
+    variation_repository.get_by_id.return_value = variation
+    variation_repository.update_status.return_value = ProductVariation(
+        id=variation_id,
+        product_id=product_id,
+        internal_code="TOM-ITA-20-A",
+        classification="Categoria A",
+        package_type="Caixa 20 kg",
+        unit_of_measure="CAIXA",
+        weight_or_volume=Decimal("20"),
+        standard_price=Decimal("160"),
+        minimum_price=Decimal("145"),
+        minimum_stock=Decimal("10"),
+        commission_percentage=Decimal("3"),
+        barcode=None,
+        qr_code=None,
+        is_active=False,
+    )
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = (
+        lambda: product_repository
+    )
+    app.dependency_overrides[get_product_variation_repository] = (
+        lambda: variation_repository
+    )
+
+    response = client.patch(
+        (
+            "/api/v1/product-variations/"
+            f"{variation_id}/status"
+        ),
+        json={
+            "is_active": False,
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["is_active"] is False
+
+
+def test_vendor_cannot_change_product_variation_status(client) -> None:
+    user = User(
+        id=uuid4(),
+        name="Vendedor",
+        email="vendedor@agrosales.com",
+        password_hash="hash",
+        role=UserRole.VENDEDOR,
+        is_active=True,
+    )
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = lambda: AsyncMock()
+    app.dependency_overrides[get_product_variation_repository] = (
+        lambda: AsyncMock()
+    )
+
+    response = client.patch(
+        (
+            "/api/v1/product-variations/"
+            f"{uuid4()}/status"
+        ),
+        json={
+            "is_active": False,
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 403
+
+
+def test_update_returns_404_for_missing_variation(client) -> None:
+    user = User(
+        id=uuid4(),
+        name="Administrador",
+        email="admin@agrosales.com",
+        password_hash="hash",
+        role=UserRole.ADMINISTRADOR,
+        is_active=True,
+    )
+
+    product_repository = AsyncMock()
+    variation_repository = AsyncMock()
+    variation_repository.get_by_id.return_value = None
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_product_repository] = (
+        lambda: product_repository
+    )
+    app.dependency_overrides[get_product_variation_repository] = (
+        lambda: variation_repository
+    )
+
+    response = client.patch(
+        f"/api/v1/product-variations/{uuid4()}",
+        json={
+            "classification": "Premium",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == (
+        "Variação de produto não encontrada"
+    )
